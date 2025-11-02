@@ -1,79 +1,109 @@
-import axios, { AxiosInstance } from 'axios';
+// src/services/api.ts
+import axios, { 
+  AxiosError, 
+  AxiosInstance, 
+  AxiosRequestConfig, 
+  AxiosResponse, 
+  AxiosProgressEvent 
+} from 'axios';
 import { AuthResponse } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+interface UploadFileConfig extends AxiosRequestConfig {
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void;
+}
 
-class APIClient {
-  private client: AxiosInstance;
-  private token: string | null = null;
+// Ensure the API base URL is properly formatted
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
-  constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+const api: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-    this.token = localStorage.getItem('access_token');
-    this.setupInterceptors();
+// Méode pour uploader des fichiers
+api.uploadFile = async function<T = any>(
+  url: string,
+  file: File,
+  config?: UploadFileConfig
+): Promise<T> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await this.post<T>(url, formData, {
+    ...config,
+    headers: {
+      ...config?.headers,
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  return response.data;
+};
+
+// Intercepteur pour ajouter le token d'authentification
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
+);
 
-  private setupInterceptors() {
-    this.client.interceptors.request.use((config) => {
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    });
-
-    this.client.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+// Intercepteur pour gérer le rafraîchissement du token
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as any;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          // Rediriger vers la page de connexion
           window.location.href = '/login';
+          return Promise.reject(error);
         }
+
+        const response = await axios.post<AuthResponse>(`${API_BASE_URL}/api/auth/refresh/`, {
+          refresh: refreshToken,
+        });
+
+        const { access } = response.data;
+        localStorage.setItem('access_token', access);
+        originalRequest.headers.Authorization = `Bearer ${access}`;
+        
+        return api(originalRequest);
+      } catch (error) {
+        // En cas d'erreur de rafraîchissement du token, déconnecter l'utilisateur
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/login';
         return Promise.reject(error);
       }
-    );
+    }
+    
+    return Promise.reject(error);
   }
+);
 
-  setToken(token: string) {
-    this.token = token;
-  }
-
-  async post<T>(url: string, data?: any): Promise<T> {
-    const response = await this.client.post<T>(url, data);
-    return response.data;
-  }
-
-  async get<T>(url: string): Promise<T> {
-    const response = await this.client.get<T>(url);
-    return response.data;
-  }
-
-  async put<T>(url: string, data?: any): Promise<T> {
-    const response = await this.client.put<T>(url, data);
-    return response.data;
-  }
-
-  async delete<T>(url: string): Promise<T> {
-    const response = await this.client.delete<T>(url);
-    return response.data;
-  }
-
-  async uploadFile<T>(url: string, file: File): Promise<T> {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await this.client.post<T>(url, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
+declare module 'axios' {
+  interface AxiosInstance {
+    uploadFile<T = any>(
+      url: string,
+      file: File,
+      config?: UploadFileConfig
+    ): Promise<T>;
   }
 }
 
-export const apiClient = new APIClient();
-
+export default api;

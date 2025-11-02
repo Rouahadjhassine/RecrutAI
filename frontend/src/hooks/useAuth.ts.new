@@ -1,0 +1,161 @@
+// ============================================
+// FILE: src/hooks/useAuth.ts
+// ============================================
+
+import { useState, useEffect } from 'react';
+import { User, LoginFormData, RegisterFormData, UserRole } from '../types';
+import { authService } from '../services/authService';
+
+interface UseAuthReturn {
+  user: User | null;
+  loading: boolean;
+  error: string;
+  login: (email: string, password: string) => Promise<User>;
+  register: (data: RegisterFormData) => Promise<User>;
+  logout: () => void;
+  setError: (error: string) => void;
+}
+
+export function useAuth(): UseAuthReturn {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const initAuth = async () => {
+      console.log('Initialisation de l\'authentification...');
+      const isAuthenticated = authService.isAuthenticated();
+      console.log('Est authentifié ?', isAuthenticated);
+      
+      if (isAuthenticated) {
+        try {
+          console.log('Récupération des informations de l\'utilisateur...');
+          const currentUser = await authService.getCurrentUser();
+          
+          if (currentUser) {
+            // Normaliser le rôle
+            let normalizedRole: UserRole = 'candidat';
+            if (currentUser.role) {
+              const roleStr = String(currentUser.role).toLowerCase().trim();
+              if (['candidat', 'recruteur'].includes(roleStr)) {
+                normalizedRole = roleStr as UserRole;
+              } else {
+                console.warn(`Rôle invalide '${currentUser.role}' détecté, utilisation de 'candidat' par défaut`);
+              }
+            }
+            
+            const updatedUser = { ...currentUser, role: normalizedRole };
+            console.log('Utilisateur récupéré avec rôle:', updatedUser.role);
+            setUser(updatedUser);
+          } else {
+            console.log('Aucun utilisateur trouvé malgré l\'authentification, déconnexion...');
+            authService.logout();
+          }
+        } catch (err) {
+          console.error('Erreur lors de la récupération de l\'utilisateur:', err);
+          setError('Échec de la récupération de l\'utilisateur');
+          authService.logout();
+        }
+      } else {
+        console.log('Aucun utilisateur connecté');
+      }
+      setLoading(false);
+    };
+
+    initAuth();
+  }, []);
+
+  const login = async (email: string, password: string): Promise<User> => {
+    console.log('Tentative de connexion avec:', email);
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Appel au service d'authentification
+      const { user } = await authService.login({ email, password });
+      
+      if (!user) {
+        throw new Error('Aucun utilisateur retourné après connexion');
+      }
+      
+      console.log('Utilisateur connecté avec succès:', user);
+      
+      // Normaliser le rôle
+      let normalizedRole: UserRole = 'candidat';
+      if (user.role) {
+        const roleStr = String(user.role).toLowerCase().trim();
+        if (['candidat', 'recruteur'].includes(roleStr)) {
+          normalizedRole = roleStr as UserRole;
+        } else {
+          console.warn(`Rôle invalide '${user.role}' détecté, utilisation de 'candidat' par défaut`);
+        }
+      }
+      
+      // Mettre à jour l'utilisateur avec le rôle normalisé
+      const updatedUser = { ...user, role: normalizedRole };
+      
+      // Mettre à jour l'état local et le stockage
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      return updatedUser;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Échec de la connexion';
+      console.error('Erreur de connexion:', errorMessage, err);
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (data: RegisterFormData): Promise<User> => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const { user } = await authService.register(data);
+      
+      if (!user) {
+        throw new Error('Aucun utilisateur retourné après inscription');
+      }
+      
+      // Normaliser le rôle
+      let normalizedRole: UserRole = 'candidat';
+      if (user.role) {
+        const roleStr = String(user.role).toLowerCase().trim();
+        if (['candidat', 'recruteur'].includes(roleStr)) {
+          normalizedRole = roleStr as UserRole;
+        } else {
+          console.warn(`Rôle invalide '${user.role}' détecté, utilisation de 'candidat' par défaut`);
+        }
+      }
+      
+      const updatedUser = { ...user, role: normalizedRole };
+      setUser(updatedUser);
+      
+      return updatedUser;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Échec de l\'inscription';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = (): void => {
+    authService.logout();
+    setUser(null);
+  };
+
+  return {
+    user,
+    loading,
+    error,
+    login,
+    register,
+    logout,
+    setError,
+  };
+}

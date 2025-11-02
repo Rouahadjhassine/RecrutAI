@@ -2,13 +2,10 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { Header } from '../components/Shared/Header';
 import { Sidebar } from '../components/Shared/Sidebar';
-import { CandidatDashboard } from '../components/Candidat/Dashboard';
-import { UploadCV } from '../components/Candidat/UploadCV';
-import { AnalyzeJob } from '../components/Candidat/AnalyzeJob';
-import { RecruteurDashboard } from '../components/Recruteur/Dashboard';
-import { PostJob } from '../components/Recruteur/PostJob';
-import { AnalyzeCVs } from '../components/Recruteur/AnalyzeCVs';
-import { SendEmails } from '../components/Recruteur/SendEmails';
+import CandidatDashboard from './candidat/Dashboard';
+import UploadCV from './candidat/UploadCV';
+import AnalyzeJob from './candidat/AnalyzeJob';
+import { Dashboard as RecruteurDashboard, PostJob, AnalyzeCVs, SendEmails } from './recruteur';
 
 interface DashboardProps {
   user: User;
@@ -25,19 +22,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const renderPage = () => {
     switch (currentPage) {
       case 'candidat-dashboard':
-        return <CandidatDashboard user={user} />;
+        return <CandidatDashboard user={user} onLogout={onLogout} />;
       case 'candidat-upload':
         return <UploadCV />;
       case 'candidat-analyze':
         return <AnalyzeJob />;
       case 'recruteur-dashboard':
-        return <RecruteurDashboard user={user} />;
+        return <RecruteurDashboard user={user} onLogout={onLogout} />;
       case 'recruteur-post':
-        return <PostJob />;
+        return <PostJob user={user} onLogout={onLogout} />;
       case 'recruteur-analyze':
-        return <AnalyzeCVs onSelectCVs={setSelectedCandidates} />;
+        return <AnalyzeCVs user={user} onLogout={onLogout} onSelectCVs={setSelectedCandidates} />;
       case 'recruteur-email':
-        return <SendEmails selectedCandidates={selectedCandidates} />;
+        return <SendEmails user={user} onLogout={onLogout} selectedCandidates={selectedCandidates} />;
       default:
         return null;
     }
@@ -58,6 +55,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           onNavigate={setCurrentPage}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          user={user}
         />
         <main className="flex-1 overflow-auto">{renderPage()}</main>
       </div>

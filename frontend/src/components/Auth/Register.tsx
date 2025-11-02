@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Briefcase } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import 'react-toastify/dist/ReactToastify.css';
+const { toast } = require('react-toastify');
 
 interface RegisterProps {
   onRegisterSuccess: (role: 'candidat' | 'recruteur') => void;
@@ -11,15 +13,57 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { register, loading, error } = useAuth();
+
+  useEffect(() => {
+    if (error) {
+      // Afficher l'erreur avec toast
+      toast.error(error);
+    }
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Réinitialiser les erreurs
+    setFormErrors({});
+    
+    // Validation côté client
+    const errors: Record<string, string> = {};
+    
+    if (!firstName.trim()) errors.firstName = 'Le prénom est requis';
+    if (!lastName.trim()) errors.lastName = 'Le nom est requis';
+    if (!email.trim()) {
+      errors.email = 'L\'email est requis';
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      errors.email = 'Veuillez entrer un email valide';
+    }
+    if (!password) {
+      errors.password = 'Le mot de passe est requis';
+    } else if (password.length < 8) {
+      errors.password = 'Le mot de passe doit contenir au moins 8 caractères';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    
     try {
-      await register(email, password, role);
+      await register({
+        email,
+        password,
+        role,
+        first_name: firstName,
+        last_name: lastName
+      });
       onRegisterSuccess(role);
+      toast.success('Inscription réussie !');
     } catch (err) {
-      // Error is handled by useAuth hook
+      // Les erreurs sont déjà gérées par useAuth
+      console.error('Erreur lors de l\'inscription:', err);
     }
   };
 
@@ -60,11 +104,33 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
               <input
                 type="text"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                onChange={(e) => {
+                  setFirstName(e.target.value);
+                  if (formErrors.firstName) setFormErrors({...formErrors, firstName: ''});
+                }}
+                className={`w-full px-4 py-2 border ${formErrors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
                 placeholder="Votre prénom"
-                required
               />
+              {formErrors.firstName && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.firstName}</p>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => {
+                  setLastName(e.target.value);
+                  if (formErrors.lastName) setFormErrors({...formErrors, lastName: ''});
+                }}
+                className={`w-full px-4 py-2 border ${formErrors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
+                placeholder="Votre nom"
+              />
+              {formErrors.lastName && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.lastName}</p>
+              )}
             </div>
 
             <div className="mb-4">
@@ -72,11 +138,16 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (formErrors.email) setFormErrors({...formErrors, email: ''});
+                }}
+                className={`w-full px-4 py-2 border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
                 placeholder="votre@email.com"
-                required
               />
+              {formErrors.email && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+              )}
             </div>
 
             <div className="mb-6">
@@ -84,11 +155,16 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (formErrors.password) setFormErrors({...formErrors, password: ''});
+                }}
+                className={`w-full px-4 py-2 border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
                 placeholder="••••••••"
-                required
               />
+              {formErrors.password && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+              )}
             </div>
 
             {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}

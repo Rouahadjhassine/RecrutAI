@@ -11,23 +11,33 @@ from .serializers import UserSerializer, RegisterSerializer, LoginSerializer
 @permission_classes([AllowAny])
 def register_view(request):
     """Inscription d'un nouvel utilisateur"""
+    print("Données reçues:", request.data)  # Debug
     serializer = RegisterSerializer(data=request.data)
     
     if serializer.is_valid():
-        user = serializer.save()
-        
-        # Générer les tokens JWT
-        refresh = RefreshToken.for_user(user)
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'message': 'Inscription réussie'
-        }, status=status.HTTP_201_CREATED)
+        try:
+            user = serializer.save()
+            print("Utilisateur créé avec succès:", user.email)  # Debug
+            
+            # Générer les tokens JWT
+            refresh = RefreshToken.for_user(user)
+            
+            return Response({
+                'user': UserSerializer(user).data,
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'message': 'Inscription réussie'
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print("Erreur lors de la création de l'utilisateur:", str(e))  # Debug
+            return Response({
+                'message': 'Erreur lors de la création du compte',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
     
+    print("Erreurs de validation:", serializer.errors)  # Debug
     return Response({
-        'message': 'Erreur lors de l\'inscription',
+        'message': 'Erreur de validation',
         'errors': serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
 
