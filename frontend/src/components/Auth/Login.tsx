@@ -7,10 +7,11 @@ import { Briefcase } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface LoginProps {
-  onLoginSuccess: (role: 'candidat' | 'recruteur') => void;
+  onLoginSuccess: (role?: 'candidat' | 'recruteur') => void;
+  onShowRegister: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) => {
   const [role, setRole] = useState<'candidat' | 'recruteur'>('candidat');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,11 +19,23 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Tentative de connexion avec email:', email);
+    
     try {
-      await login(email, password);
-      onLoginSuccess(role);
+      const response = await login(email, password);
+      console.log('Réponse de connexion dans Login:', response);
+      
+      if (response && response.role) {
+        console.log('Connexion réussie, rôle détecté:', response.role);
+        // On passe le rôle à onLoginSuccess pour forcer la redirection
+        onLoginSuccess(response.role);
+      } else {
+        console.warn('Aucun rôle détecté dans la réponse, utilisation du rôle par défaut');
+        onLoginSuccess('candidat');
+      }
     } catch (err) {
-      // Error is handled by useAuth hook
+      console.error('Erreur de connexion dans Login:', err);
+      // L'erreur est déjà gérée par le hook useAuth
     }
   };
 
@@ -94,6 +107,18 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
+          
+          <div className="mt-6 text-center">
+            <p className="text-gray-600">Vous n'avez pas de compte ?{' '}
+              <button
+                type="button"
+                onClick={onShowRegister}
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Créer un compte
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>

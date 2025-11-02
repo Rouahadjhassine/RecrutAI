@@ -1,38 +1,63 @@
-import { apiClient } from './api';
+// src/services/analysisService.ts
+import api from './api';
 import { AnalysisResult, CV, JobOffer } from '../types';
 
 export const analysisService = {
   async uploadCV(file: File): Promise<CV> {
-    return apiClient.uploadFile('/api/cvs/upload/', file);
+    return api.uploadFile<CV>('/api/cvs/upload/', file);
+  },
+
+  async analyzeCV(cvId: number, jobOfferId?: number, jobDescription?: string): Promise<AnalysisResult> {
+    const response = await api.post('/api/analysis/analyze/', {
+      cv_id: cvId,
+      job_offer_id: jobOfferId,
+      job_description: jobDescription
+    });
+    return response as unknown as AnalysisResult;
   },
 
   async analyzeCVWithJob(cvId: number, jobOfferId: number): Promise<AnalysisResult> {
-    return apiClient.post('/api/nlp/analyze/', { cv_id: cvId, job_offer_id: jobOfferId });
+    return this.analyzeCV(cvId, jobOfferId);
   },
 
   async rankCVsForJob(jobOfferId: number): Promise<AnalysisResult[]> {
-    return apiClient.post('/api/nlp/rank-cvs/', { job_offer_id: jobOfferId });
+    const response = await api.get(`/api/analysis/job/${jobOfferId}/rank/`);
+    return response as unknown as AnalysisResult[];
   },
 
   async summarizeCV(cvId: number): Promise<string> {
-    const response = await apiClient.get<{ summary: string }>(`/api/nlp/summarize-cv/${cvId}/`);
-    return response.summary;
+    const response = await api.get(`/api/analysis/cv/${cvId}/summary/`);
+    return (response as unknown as { summary: string }).summary;
   },
 
   async getCVList(): Promise<CV[]> {
-    return apiClient.get('/api/cvs/list/');
+    const response = await api.get('/api/cvs/');
+    return response as unknown as CV[];
   },
 
   async getJobOfferList(): Promise<JobOffer[]> {
-    return apiClient.get('/api/cvs/job-offers/');
+    const response = await api.get('/api/job-offers/');
+    return response as unknown as JobOffer[];
   },
 
-  async createJobOffer(data: { title: string; description: string; requirements: string[] }): Promise<JobOffer> {
-    return apiClient.post('/api/cvs/job-offers/', data);
+  async createJobOffer(data: { 
+    title: string; 
+    description: string; 
+    requirements: string[];
+    deadline?: string;
+    location?: string;
+  }): Promise<JobOffer> {
+    const response = await api.post('/api/job-offers/', data);
+    return response as unknown as JobOffer;
   },
 
-  async sendEmailsToCandidates(candidateIds: number[], emailData: { subject: string; body: string }): Promise<void> {
-    return apiClient.post('/api/notifications/send-emails/', { candidate_ids: candidateIds, ...emailData });
+  async sendEmailsToCandidates(
+    candidateIds: number[], 
+    emailData: { subject: string; body: string }
+  ): Promise<void> {
+    await api.post('/api/emails/send/', {
+      candidate_ids: candidateIds,
+      ...emailData
+    });
   },
 };
-
