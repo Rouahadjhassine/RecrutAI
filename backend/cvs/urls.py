@@ -1,14 +1,22 @@
+# cvs/urls.py
 from django.urls import path
 from . import views
 
 urlpatterns = [
     # Candidat
-    path('upload/', views.upload_cv, name='upload-cv'),
-    path('analyze/', views.analyze_cv_vs_job, name='analyze-cv-job'),
-    
+    path('upload/', views.upload_cv),
+    path('my-cvs/', views.get_my_cvs),
+
     # Recruteur
-    path('list/', views.list_all_cvs, name='list-cvs'),
-    path('rank/', views.rank_all_cvs, name='rank-cvs'),
-    path('summarize/<int:cv_id>/', views.summarize_cv, name='summarize-cv'),
-    path('send-emails/', views.send_emails_to_candidates, name='send-emails'),
+    path('all-cvs/', views.get_all_cvs),
+
+    # Analyse
+    path('analyze/', views.analyze_cv_vs_text),
+    path('rank/', views.rank_cvs_by_text),
+
+    # Email
+    path('send-email/', views.send_email_to_candidate),
+
+    # Historique
+    path('history/', views.get_analysis_history),
 ]

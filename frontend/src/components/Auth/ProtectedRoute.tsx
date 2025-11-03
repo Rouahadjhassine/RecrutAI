@@ -1,24 +1,22 @@
-import React from 'react';
-import { authService } from '../../services/authService';
-import { Login } from './Login';
+// src/components/Auth/ProtectedRoute.tsx
+import { useAuth } from '../../hooks/useAuth';
+import { Navigate } from 'react-router-dom';
+import { LoadingSpinner } from '../Shared/LoadingSpinner';
 
-interface ProtectedRouteProps {
+interface Props {
   children: React.ReactNode;
-  onRoleChange?: (role: 'candidat' | 'recruteur') => void;
-  onShowRegister?: () => void;
+  requiredRole?: 'candidat' | 'recruteur';
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, onRoleChange, onShowRegister = () => {} }) => {
-  if (!authService.isAuthenticated()) {
-    const handleLoginSuccess = onRoleChange 
-      ? (role?: 'candidat' | 'recruteur') => {
-          if (role) {
-            onRoleChange(role);
-          }
-        }
-      : () => {};
-      
-    return <Login onLoginSuccess={handleLoginSuccess} onShowRegister={onShowRegister} />;
+export const ProtectedRoute: React.FC<Props> = ({ children, requiredRole }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingSpinner />;
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (requiredRole && user.role !== requiredRole) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

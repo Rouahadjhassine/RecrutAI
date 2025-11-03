@@ -1,13 +1,11 @@
-import React from 'react';
-
-interface LoadingSpinnerProps {
-  message?: string;
-}
-
-export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ message }) => (
-  <div className="flex flex-col items-center justify-center p-8 space-y-4">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    {message && <p className="text-gray-600">{message}</p>}
-  </div>
-);
-
+// src/components/Shared/LoadingSpinner.tsx
+export const LoadingSpinner = ({ message = 'Chargement...' }: { message?: string }) => {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-white text-lg font-medium">{message}</p>
+      </div>
+    </div>
+  );
+};
