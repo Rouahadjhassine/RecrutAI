@@ -9,49 +9,33 @@ export const useAuth = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const current = await authService.getCurrentUser();
-        setUser(current);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchUser();
+    authService.getCurrentUser().then((u) => {
+      setUser(u);
+      setLoading(false);
+    });
   }, []);
 
-  const login = async (email: string, password: string): Promise<User> => {
-    setLoading(true);
+  const login = async (email: string, password: string) => {
     setError(null);
     try {
       const { user } = await authService.login({ email, password });
       setUser(user);
       return user;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setLoading(false);
+      setError(err instanceof Error ? err.message : 'An error occurred during login');
+      throw err;
     }
   };
 
-  const register = async (userData: any): Promise<User> => {
-    setLoading(true);
+  const register = async (userData: any) => {
     setError(null);
     try {
       const { user } = await authService.register(userData);
       setUser(user);
       return user;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setLoading(false);
+      setError(err instanceof Error ? err.message : 'An error occurred during registration');
+      throw err;
     }
   };
 
