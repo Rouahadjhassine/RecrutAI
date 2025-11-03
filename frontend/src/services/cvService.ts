@@ -1,39 +1,46 @@
-// src/services/cvService.ts
 import api from './api';
-import { CV, AnalysisResult } from '../types';
+import { CV, AnalysisResult, RankedCV } from '../types';
 
 export const cvService = {
   async uploadCV(file: File): Promise<CV> {
-    const response = await api.uploadFile<CV>('/api/cvs/upload/', file);
-    return response;
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post('/api/cvs/upload/', form);
+    return res.data.cv;
   },
 
   async getMyCVs(): Promise<CV[]> {
-    const response = await api.get<CV[]>('/api/cvs/');
-    return response.data;
+    const res = await api.get('/api/cvs/my-cvs/');
+    return res.data;
   },
 
-  async analyzeCV(cvId: number, jobOfferId?: number, jobDescription?: string): Promise<AnalysisResult> {
-    const response = await api.post<AnalysisResult>('/api/analyze/cv/', {
-      cv_id: cvId,
-      job_offer_id: jobOfferId,
-      job_description: jobDescription,
+  async getAllCVs(): Promise<CV[]> {
+    const res = await api.get('/api/cvs/all-cvs/');
+    return res.data;
+  },
+
+  async analyze(jobText: string, cvId?: number): Promise<AnalysisResult> {
+    const payload: any = { job_offer_text: jobText };
+    if (cvId) payload.cv_id = cvId;
+    const res = await api.post('/api/cvs/analyze/', payload);
+    return res.data;
+  },
+
+  async rank(jobText: string): Promise<RankedCV[]> {
+    const res = await api.post('/api/cvs/rank/', { job_offer_text: jobText });
+    return res.data.rankings;
+  },
+
+  async sendEmail(candidateId: number, subject: string, message: string) {
+    await api.post('/api/cvs/send-email/', {
+      candidate_id: candidateId,
+      subject,
+      message
     });
-    return response.data;
   },
 
-  async getCV(id: number): Promise<CV> {
-    const response = await api.get<CV>(`/api/cvs/${id}/`);
-    return response.data;
-  },
-
-  async getCVsForJobOffer(jobOfferId: number): Promise<CV[]> {
-    const response = await api.get<CV[]>(`/api/cvs/for-job/${jobOfferId}/`);
-    return response.data;
-  },
-
-  async getCVsByCandidate(candidateId: number): Promise<CV[]> {
-    const response = await api.get<CV[]>(`/api/candidates/${candidateId}/cvs/`);
-    return response.data;
-  },
+  async getHistory(): Promise<AnalysisResult[]> {
+    const res = await api.get('/api/cvs/history/');
+    return res.data;
+  }
 };

@@ -1,42 +1,28 @@
-// ============================================
-// FILE: src/components/Auth/Login.tsx
-// ============================================
-
-import React, { useState } from 'react';
+// src/components/Auth/Login.tsx
+import { useState } from 'react';
 import { Briefcase } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface LoginProps {
-  onLoginSuccess: (role?: 'candidat' | 'recruteur') => void;
+  onLoginSuccess?: (role: 'candidat' | 'recruteur') => void;
   onShowRegister: () => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) => {
-  const [role, setRole] = useState<'candidat' | 'recruteur'>('candidat');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, loading, error } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Tentative de connexion avec email:', email);
-    
     try {
-      const response = await login(email, password);
-      console.log('Réponse de connexion dans Login:', response);
-      
-      if (response && response.role) {
-        console.log('Connexion réussie, rôle détecté:', response.role);
-        // On passe le rôle à onLoginSuccess pour forcer la redirection
-        onLoginSuccess(response.role);
-      } else {
-        console.warn('Aucun rôle détecté dans la réponse, utilisation du rôle par défaut');
-        onLoginSuccess('candidat');
-      }
-    } catch (err) {
-      console.error('Erreur de connexion dans Login:', err);
-      // L'erreur est déjà gérée par le hook useAuth
-    }
+      const user = await login(email, password);
+      const role = user.role as 'candidat' | 'recruteur';
+      onLoginSuccess?.(role);
+      navigate('/dashboard');
+    } catch {}
   };
 
   return (
@@ -47,77 +33,44 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
             <Briefcase className="w-8 h-8 text-blue-600" />
           </div>
           <h1 className="text-4xl font-bold text-white">RecrutAI</h1>
-          <p className="text-blue-100 mt-2">Intelligence artificielle pour le recrutement</p>
+          <p className="text-blue-100 mt-2">IA pour le recrutement</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-2xl p-8 mb-6">
-          <div className="flex gap-3 mb-6">
-            <button
-              onClick={() => setRole('candidat')}
-              className={`flex-1 py-3 rounded-lg font-semibold transition ${
-                role === 'candidat' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Candidat
-            </button>
-            <button
-              onClick={() => setRole('recruteur')}
-              className={`flex-1 py-3 rounded-lg font-semibold transition ${
-                role === 'recruteur'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Recruteur
-            </button>
-          </div>
-
+        <div className="bg-white rounded-lg shadow-2xl p-8">
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="votre@email.com"
+                onChange={e => setEmail(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
-
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="••••••••"
+                onChange={e => setPassword(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
-
             {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
-
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50"
             >
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
-          
           <div className="mt-6 text-center">
-            <p className="text-gray-600">Vous n'avez pas de compte ?{' '}
-              <button
-                type="button"
-                onClick={onShowRegister}
-                className="text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Créer un compte
-              </button>
-            </p>
+            <button onClick={onShowRegister} className="text-blue-600 hover:text-blue-800">
+              Créer un compte
+            </button>
           </div>
         </div>
       </div>

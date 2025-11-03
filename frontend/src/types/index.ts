@@ -7,84 +7,78 @@ export interface User {
   first_name: string;
   last_name: string;
   role: UserRole;
-  created_at: string;
+  phone?: string;
+  bio?: string;
 }
 
+// === CV ===
 export interface CV {
   id: number;
-  user_id: number;
-  file_path: string;
   file_name: string;
-  file_url: string;
-  upload_date: string;
   uploaded_at: string;
-  candidate_id: number;
-  candidate_name: string;
-  score?: number;
-  status?: 'pending' | 'analyzed' | 'selected' | 'rejected';
-  analysis?: AnalysisResult;
+  parsed_data: {
+    skills: string[];
+    experience_years: number;
+  };
+  candidat_name: string;
+  candidat_email: string;
+  candidat_id: number;
 }
 
-export interface JobOffer {
-  id: number;
-  title: string;
-  description: string;
-  requirements: string[];
-  created_at: string;
-  recruiter_id: number;
-  deadline: string;
-  location: string;
-  status?: 'draft' | 'published' | 'closed';
-  salary_range?: string;
-  experience_level?: string;
-  job_type?: string;
-  industry?: string;
-  skills?: string[];
-  applicants_count?: number;
-}
-
+// === Résultat d'analyse ===
 export interface AnalysisResult {
   id: number;
-  cv_id: number;
-  job_offer_id?: number;
-  job_title?: string;
-  candidate_name?: string;
+  cv: number;
+  job_offer_text: string;
   compatibility_score: number;
   matched_keywords: string[];
   missing_keywords: string[];
+  summary: string;
   created_at: string;
-  updated_at?: string;
-  summary?: string;
-  status?: 'pending' | 'processing' | 'completed' | 'failed';
-  cv?: {
-    id: number;
-    file_name: string;
-    file_path: string;
-    uploaded_at: string;
-  };
-  job_offer?: {
-    id: number;
-    title: string;
-    description: string;
-    requirements: string[];
-  };
+
+  // Résolu côté frontend
+  cv_file_name?: string;
+  candidat_name?: string;
 }
 
-export interface EmailTemplate {
-  id: number;
-  subject: string;
-  content: string;
-  created_at: string;
-  recruiter_id: number;
+// === Classement ===
+export interface RankedCV {
+  cv_id: number;
+  score: number;
+  matched_keywords: string[];
+  missing_keywords: string[];
+  candidat_name: string;
+  candidat_email: string;
+  candidat_id: number;
 }
 
+// === Réponses API ===
 export interface AuthResponse {
   access: string;
   refresh: string;
   user: User;
 }
 
-// Types pour les formulaires
+export interface CVUploadResponse {
+  message: string;
+  cv: CV;
+}
+
+export interface AnalysisResponse {
+  // Retour de analyze_cv_vs_text
+  compatibility_score: number;
+  matched_keywords: string[];
+  missing_keywords: string[];
+  summary: string;
+  cv_id: number;
+  candidat_name: string;
+}
+
+export interface RankingResponse {
+  rankings: RankedCV[];
+}
+
+// === Formulaires ===
 export interface LoginFormData {
   email: string;
   password: string;
@@ -98,13 +92,12 @@ export interface RegisterFormData {
   role: UserRole;
 }
 
-// Pour les props des composants
-export interface ProtectedRouteProps {
-  role?: UserRole;
-  children: React.ReactNode;
+export interface EmailData {
+  candidate_id: number;
+  subject: string;
+  message: string;
 }
 
-export interface AuthFormProps {
-  isLogin?: boolean;
-  onSuccess?: () => void;
+export interface JobTextData {
+  job_offer_text: string;
 }

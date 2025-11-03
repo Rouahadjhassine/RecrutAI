@@ -43,8 +43,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'cvs',
-    'nlp_service',
-    'notifications',
 ]
 
 MIDDLEWARE = [
