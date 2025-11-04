@@ -39,28 +39,70 @@ class AuthService {
 
   // === GET CURRENT USER ===
   async getCurrentUser(): Promise<User | null> {
-    if (this.user) return this.user;
+    console.log('authService - getCurrentUser - Début');
+    
+    if (this.user) {
+      console.log('authService - Utilisateur déjà en mémoire:', {
+        ...this.user,
+        hasRole: 'role' in this.user,
+        roleValue: (this.user as any).role,
+        keys: Object.keys(this.user)
+      });
+      return this.user;
+    }
 
     const token = this.getAccessToken();
-    if (!token) return null;
+    console.log('authService - Token d\'accès trouvé:', !!token);
+    
+    if (!token) {
+      console.log('authService - Aucun token d\'accès trouvé');
+      return null;
+    }
 
     try {
-      const response = await api.get<User>('/api/auth/me/', {
-        headers: {
-          Authorization: `Bearer ${token}`, // CORRIGÉ
-        },
-      });
+      console.log('authService - Récupération des données utilisateur depuis l\'API...');
+      const response = await api.get<{ user: User }>('/api/auth/me/');
 
-      this._saveUser(response.data);
-      return response.data;
+      console.log('authService - Réponse complète de l\'API:', response);
+      console.log('authService - Données utilisateur brutes:', response.data);
+      
+      // Vérifier si la réponse contient un objet user imbriqué
+      const userData = response.data.user || response.data;
+      
+      console.log('authService - Données utilisateur traitées:', {
+        ...userData,
+        hasRole: 'role' in userData,
+        roleValue: (userData as any).role,
+        keys: Object.keys(userData)
+      });
+      
+      // S'assurer que le rôle est correctement défini
+      if (!userData.role) {
+        console.warn('authService - Aucun rôle défini pour l\'utilisateur, utilisation de "candidat" par défaut');
+        userData.role = 'candidat';
+      }
+      
+      this._saveUser(userData);
+      
+      return userData;
     } catch (error: any) {
+      console.error('authService - Erreur lors de la récupération de l\'utilisateur:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
       if (error.response?.status === 401) {
+        console.log('authService - Tentative de rafraîchissement du token...');
         const refreshed = await this.refreshToken();
         if (refreshed) {
+          console.log('authService - Token rafraîchi avec succès, nouvelle tentative...');
           return this.getCurrentUser();
+        } else {
+          console.log('authService - Échec du rafraîchissement du token');
         }
       }
-      console.error('Failed to fetch user:', error);
+      
       this.logout();
       return null;
     }
@@ -108,7 +150,33 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getAccessToken();
+    const token = this.getAccessToken();
+    console.log('authService - Vérification de l\'authentification, token présent:', !!token);
+    
+    // Si pas de token, l'utilisateur n'est pas authentifié
+    if (!token) {
+      console.log('authService - Aucun token trouvé');
+      return false;
+    }
+
+    // Vérifier si le token est expiré (optionnel, nécessite une librairie comme jwt-decode)
+    // Pour l'instant, on considère que si le token existe, il est valide
+    // Vous pouvez décommenter le code ci-dessous pour ajouter une vérification d'expiration
+    /*
+    try {
+      const decoded = jwtDecode<{ exp: number }>(token);
+      const isExpired = decoded.exp < Date.now() / 1000;
+      if (isExpired) {
+        console.log('authService - Token expiré');
+        return false;
+      }
+    } catch (error) {
+      console.error('authService - Erreur lors de la vérification du token:', error);
+      return false;
+    }
+    */
+    
+    return true;
   }
 
   getAccessToken(): string | null {

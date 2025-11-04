@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+// src/components/Auth/Register.tsx
+import React, { useState } from 'react';
 import { Briefcase } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import 'react-toastify/dist/ReactToastify.css';
-const { toast } = require('react-toastify');
 
 interface RegisterProps {
   onRegisterSuccess: (role: 'candidat' | 'recruteur') => void;
@@ -16,21 +16,13 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
   const [lastName, setLastName] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { register, loading, error } = useAuth();
-
-  useEffect(() => {
-    if (error) {
-      // Afficher l'erreur avec toast
-      toast.error(error);
-    }
-  }, [error]);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Réinitialiser les erreurs
     setFormErrors({});
     
-    // Validation côté client
     const errors: Record<string, string> = {};
     
     if (!firstName.trim()) errors.firstName = 'Le prénom est requis';
@@ -59,10 +51,16 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
         first_name: firstName,
         last_name: lastName
       });
+      
       onRegisterSuccess(role);
-      toast.success('Inscription réussie !');
+      
+      // Navigation selon le rôle
+      if (role === 'candidat') {
+        navigate('/candidat/dashboard');
+      } else {
+        navigate('/recruteur/dashboard');
+      }
     } catch (err) {
-      // Les erreurs sont déjà gérées par useAuth
       console.error('Erreur lors de l\'inscription:', err);
     }
   };
@@ -167,7 +165,11 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
               )}
             </div>
 
-            {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"
