@@ -3,20 +3,18 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Candidat
-    path('upload/', views.upload_cv),
-    path('my-cvs/', views.get_my_cvs),
+    # === CANDIDAT ===
+    path('candidat/upload/', views.upload_cv_candidat, name='candidat-upload'),
+    path('candidat/analyze/', views.analyze_candidat, name='candidat-analyze'),
 
-    # Recruteur
-    path('all-cvs/', views.get_all_cvs),
+    # === RECRUTEUR ===
+    path('recruteur/upload/', views.upload_cvs_recruteur, name='recruteur-upload-multiple'),
+    path('recruteur/analyze-single/', views.analyze_recruteur_single, name='recruteur-analyze-single'),
+    path('recruteur/rank/', views.rank_cvs_recruteur, name='recruteur-rank'),
+    
+    # === EMAIL ===
+    path('send-email/', views.send_email_to_candidate, name='send-email'),
 
-    # Analyse
-    path('analyze/', views.analyze_cv_vs_text),
-    path('rank/', views.rank_cvs_by_text),
-
-    # Email
-    path('send-email/', views.send_email_to_candidate),
-
-    # Historique
-    path('history/', views.get_analysis_history),
+    # === HISTORIQUE ===
+    path('history/', views.get_analysis_history, name='history'),
 ]

@@ -21,17 +21,18 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
       const user = await login(email, password);
       const role = user.role as 'candidat' | 'recruteur';
       
-      // Appeler la fonction de succès si elle existe
       if (onLoginSuccess) {
         onLoginSuccess(role);
       }
       
-      // Forcer un rechargement de la page pour s'assurer que tout est bien initialisé
-      window.location.href = role === 'candidat' 
-        ? '/candidat/dashboard' 
-        : '/recruteur/dashboard';
+      // Navigation selon le rôle
+      if (role === 'candidat') {
+        navigate('/candidat/dashboard');
+      } else {
+        navigate('/recruteur/dashboard');
+      }
     } catch (err) {
-      console.error('Échec de la connexion:', err);
+      console.error('Login failed:', err);
     }
   };
 

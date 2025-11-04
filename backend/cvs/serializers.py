@@ -3,7 +3,7 @@ from rest_framework import serializers
 from .models import CV, AnalysisResult
 
 class CVSerializer(serializers.ModelSerializer):
-    file_name = serializers.CharField(source='file_name', read_only=True)
+    file_name = serializers.CharField(read_only=True)
     candidat_name = serializers.CharField(source='candidat.get_full_name', read_only=True)
 
     class Meta:

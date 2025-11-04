@@ -1,12 +1,12 @@
 // src/components/Dashboard/CandidatDashboard.tsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, BarChart3, History, Loader2 } from 'lucide-react';
+import { BarChart3, History } from 'lucide-react';
 import Navbar from '../Layout/Navbar';
 import { User } from '../../types';
 
 interface Props {
-  user: User | null;
+  user: User;
   onLogout: () => void;
   loading: boolean;
 }
@@ -14,20 +14,10 @@ interface Props {
 const CandidatDashboard: React.FC<Props> = ({ user, onLogout, loading }) => {
   const navigate = useNavigate();
 
-  // Redirect if user is not authenticated
-  useEffect(() => {
-    // Only redirect if we're not loading and there's no user
-    if (!loading && !user) {
-      console.log('CandidatDashboard: Redirection vers /login');
-      navigate('/login', { replace: true });
-    }
-  }, [user, loading, navigate]);
-
-  // Show loading state while checking authentication
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-white" />
+        <div className="text-white text-xl">Chargement...</div>
       </div>
     );
   }
@@ -46,27 +36,16 @@ const CandidatDashboard: React.FC<Props> = ({ user, onLogout, loading }) => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <div
-            onClick={() => navigate('/upload')}
-            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
-          >
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Upload className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Uploader un CV</h3>
-            <p className="text-gray-600">PDF → Analyse IA instantanée</p>
-          </div>
-
-          <div
-            onClick={() => navigate('/analyze')}
+            onClick={() => navigate('/candidat/analyze')}
             className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
           >
             <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <BarChart3 className="w-8 h-8 text-purple-600" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Analyser une offre</h3>
-            <p className="text-gray-600">Score de compatibilité en temps réel</p>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Analyser mon CV</h3>
+            <p className="text-gray-600">Upload + Offre → Score IA instantané</p>
           </div>
 
           <div
@@ -77,7 +56,7 @@ const CandidatDashboard: React.FC<Props> = ({ user, onLogout, loading }) => {
               <History className="w-8 h-8 text-green-600" />
             </div>
             <h3 className="text-xl font-bold text-gray-800 mb-2">Historique</h3>
-            <p className="text-gray-600">Toutes vos analyses passées</p>
+            <p className="text-gray-600">Toutes mes analyses passées</p>
           </div>
         </div>
       </div>
