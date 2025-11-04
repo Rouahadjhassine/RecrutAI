@@ -9,6 +9,7 @@ export default function UploadPage({ user }: { user: User }) {
   const [uploaded, setUploaded] = useState<any>(null);
 
   const handleUpload = async (file: File) => {
+    console.log('Fichier reçu dans handleUpload:', file);
     try {
       const cv = await cvService.uploadCV(file);
       setUploaded(cv);
@@ -27,7 +28,7 @@ export default function UploadPage({ user }: { user: User }) {
 
         {!uploaded ? (
           <div className="bg-white rounded-xl shadow-2xl p-10">
-            <UploadCV onUpload={(cv) => handleUpload(cv.file)} />
+            <UploadCV onUpload={handleUpload} />
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-2xl p-10 text-center">

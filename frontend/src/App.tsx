@@ -99,6 +99,15 @@ function App() {
         }
       />
 
+      <Route
+        path="/recruteur/ranking"
+        element={
+          <ProtectedRoute requiredRole="recruteur">
+            <RecruteurAnalysisPage user={user!} initialMode="ranking" />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Route commune : Historique */}
       <Route
         path="/history"

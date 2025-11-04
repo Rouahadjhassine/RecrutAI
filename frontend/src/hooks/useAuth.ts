@@ -27,27 +27,45 @@ export const useAuth = (): AuthContextType => {
 
   // Initialize auth state on mount
   useEffect(() => {
+    let isMounted = true;
+    
     const initializeAuth = async () => {
       try {
-        setLoading(true);
-        await authService.initialize();
+        if (isMounted) setLoading(true);
+        
+        console.log('Initialisation de l\'authentification...');
+        const user = await authService.initialize();
+        
+        if (isMounted) {
+          setUser(user);
+          setError(null);
+        }
       } catch (err) {
-        console.error('Auth initialization failed:', err);
+        console.error('Échec de l\'initialisation de l\'authentification:', err);
+        if (isMounted) {
+          setError('Impossible de charger l\'état d\'authentification');
+        }
       } finally {
-        setLoading(false);
-        setInitialized(true);
+        if (isMounted) {
+          setLoading(false);
+          setInitialized(true);
+        }
       }
     };
 
     initializeAuth();
 
-    // Subscribe to auth state changes
+    // S'abonner aux changements d'état d'authentification
     const unsubscribe = authService.onAuthStateChanged((currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
+      console.log('Changement d\'état d\'authentification détecté:', currentUser);
+      if (isMounted) {
+        setUser(currentUser);
+        setLoading(false);
+      }
     });
 
     return () => {
+      isMounted = false;
       unsubscribe();
     };
   }, []);
@@ -61,10 +79,12 @@ export const useAuth = (): AuthContextType => {
     
     try {
       const result = await operation();
-      setUser(result.user);
+      // Ne pas mettre à jour l'état ici car cela sera géré par l'écouteur d'état
+      // Le setUser est déjà géré par l'écouteur d'état dans le useEffect
       return result;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Une erreur est survenue';
+      console.error('Erreur lors de l\'opération d\'authentification:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Une erreur est survenue';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -85,7 +105,14 @@ export const useAuth = (): AuthContextType => {
   };
 
   const logout = () => {
-    authService.logout();
+    try {
+      console.log('Déconnexion en cours...');
+      authService.logout();
+      // Le setUser sera effectué par l'écouteur d'état
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+      setError('Erreur lors de la déconnexion');
+    }
   };
 
   return {
