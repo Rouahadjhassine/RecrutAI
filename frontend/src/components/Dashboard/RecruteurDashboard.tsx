@@ -1,7 +1,7 @@
 // src/components/Dashboard/RecruteurDashboard.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, History, Loader2 } from 'lucide-react';
+import { BarChart3, History, Loader2, FileSearch } from 'lucide-react';
 import Navbar from '../Layout/Navbar';
 import { User } from '../../types';
 
@@ -40,10 +40,21 @@ const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading = false }
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           <div
-            onClick={() => navigate('/rank')}
-            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
+            onClick={() => navigate('/recruteur/analyze')}
+            className="bg-white rounded-xl shadow-2xl p-6 text-center cursor-pointer transform hover:scale-105 transition duration-300"
+          >
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileSearch className="w-8 h-8 text-blue-600" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Analyser des CVs</h3>
+            <p className="text-gray-600">Analysez plusieurs CVs à la fois</p>
+          </div>
+
+          <div
+            onClick={() => navigate('/recruteur/ranking')}
+            className="bg-white rounded-xl shadow-2xl p-6 text-center cursor-pointer transform hover:scale-105 transition duration-300"
           >
             <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <BarChart3 className="w-8 h-8 text-purple-600" />
@@ -54,7 +65,7 @@ const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading = false }
 
           <div
             onClick={() => navigate('/history')}
-            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
+            className="bg-white rounded-xl shadow-2xl p-6 text-center cursor-pointer transform hover:scale-105 transition duration-300"
           >
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <History className="w-8 h-8 text-green-600" />

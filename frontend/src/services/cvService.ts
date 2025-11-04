@@ -31,6 +31,15 @@ export const cvService = {
     return res.data.rankings;
   },
 
+  async rankCVs(formData: FormData): Promise<RankedCV[]> {
+    const { data } = await api.post('/cvs/recruteur/rank/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data.rankings;
+  },
+
   async sendEmail(candidateId: number, subject: string, message: string) {
     await api.post('/api/cvs/send-email/', {
       candidate_id: candidateId,

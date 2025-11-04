@@ -65,9 +65,34 @@ class AuthService {
     }
 
     try {
-      const user = await this.getCurrentUser();
+      // Vérifier d'abord si on a un token d'accès
+      const accessToken = this.getAccessToken();
+      
+      if (accessToken) {
+        // Définir le token dans les en-têtes API
+        api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+        
+        // Récupérer les informations de l'utilisateur
+        const user = await this.getCurrentUser();
+        this.isInitialized = true;
+        return user;
+      }
+      
+      // Si pas de token, vérifier si on a un refresh token
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        const refreshed = await this.refreshToken();
+        if (refreshed) {
+          const user = await this.getCurrentUser();
+          this.isInitialized = true;
+          return user;
+        }
+      }
+      
+      // Si on arrive ici, on n'est pas authentifié
       this.isInitialized = true;
-      return user;
+      return null;
+      
     } catch (error) {
       console.error('Initialization error:', error);
       this.isInitialized = true;
@@ -181,15 +206,31 @@ class AuthService {
 
   // === HELPERS ===
   private _saveTokens(access: string, refresh?: string): void {
-    localStorage.setItem('access_token', access);
-    if (refresh) localStorage.setItem('refresh_token', refresh);
-    api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+    try {
+      localStorage.setItem('access_token', access);
+      if (refresh) {
+        localStorage.setItem('refresh_token', refresh);
+      }
+      // Mettre à jour l'en-tête d'autorisation
+      api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+      
+      console.log('Tokens enregistrés avec succès');
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement des tokens:', error);
+      throw new Error('Impossible d\'enregistrer les jetons d\'authentification');
+    }
   }
 
   private _saveUser(user: User): void {
-    this.user = user;
-    localStorage.setItem('user', JSON.stringify(user));
-    this.notifyAuthStateChanged();
+    try {
+      this.user = user;
+      localStorage.setItem('user', JSON.stringify(user));
+      console.log('Utilisateur enregistré:', user);
+      this.notifyAuthStateChanged();
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement de l\'utilisateur:', error);
+      throw new Error('Impossible d\'enregistrer les informations de l\'utilisateur');
+    }
   }
 
   private lastAuthCheck: number = 0;
