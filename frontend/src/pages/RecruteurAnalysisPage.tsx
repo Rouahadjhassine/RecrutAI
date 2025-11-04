@@ -1,7 +1,7 @@
 // src/pages/RecruteurAnalysisPage.tsx
 import React, { useState, useRef } from 'react';
 import { Upload, BarChart3, Mail, Download, X, Info, Search, FileText, User as UserIcon } from 'lucide-react';
-import Tooltip from '../components/Shared/Tooltip';
+import { Tooltip } from '../components/Shared';
 import Navbar from '../components/Layout/Navbar';
 import { User } from '../types';
 import api from '../services/api';

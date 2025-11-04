@@ -5,6 +5,8 @@ import { AuthResponse, LoginFormData, RegisterFormData, User } from '../types';
 class AuthService {
   private user: User | null = null;
   private userPromise: Promise<User | null> | null = null;
+  private authStateListeners: Array<(user: User | null) => void> = [];
+  private isInitialized = false;
 
   // === LOGIN ===
   async login(credentials: LoginFormData): Promise<{ user: User }> {
@@ -38,14 +40,49 @@ class AuthService {
     }
   }
 
+  // === AUTH STATE MANAGEMENT ===
+  onAuthStateChanged(callback: (user: User | null) => void): () => void {
+    this.authStateListeners.push(callback);
+    // Call immediately with current user
+    callback(this.user);
+    
+    // Return unsubscribe function
+    return () => {
+      this.authStateListeners = this.authStateListeners.filter(
+        listener => listener !== callback
+      );
+    };
+  }
+
+  private notifyAuthStateChanged() {
+    this.authStateListeners.forEach(listener => listener(this.user));
+  }
+
+  // === INITIALIZATION ===
+  async initialize(): Promise<User | null> {
+    if (this.isInitialized) {
+      return this.user;
+    }
+
+    try {
+      const user = await this.getCurrentUser();
+      this.isInitialized = true;
+      return user;
+    } catch (error) {
+      console.error('Initialization error:', error);
+      this.isInitialized = true;
+      return null;
+    }
+  }
+
   // === GET CURRENT USER ===
   async getCurrentUser(forceRefresh = false): Promise<User | null> {
-    // Si on a déjà un utilisateur en cache et qu'on ne force pas le rafraîchissement
+    // If we already have a user and not forcing refresh
     if (this.user && !forceRefresh) {
       return this.user;
     }
 
-    // Si une requête est déjà en cours, on retourne la promesse existante
+    // If a request is already in progress, return the existing promise
     if (this.userPromise && !forceRefresh) {
       return this.userPromise;
     }
@@ -133,11 +170,12 @@ class AuthService {
 
   // === LOGOUT ===
   logout(): void {
+    this.user = null;
+    this.userPromise = null;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
-    this.user = null;
-    this.userPromise = null;
+    this.notifyAuthStateChanged();
     window.location.href = '/login';
   }
 
@@ -149,10 +187,9 @@ class AuthService {
   }
 
   private _saveUser(user: User): void {
-    if (JSON.stringify(this.user) !== JSON.stringify(user)) {
-      this.user = user;
-      localStorage.setItem('user', JSON.stringify(user));
-    }
+    this.user = user;
+    localStorage.setItem('user', JSON.stringify(user));
+    this.notifyAuthStateChanged();
   }
 
   private lastAuthCheck: number = 0;

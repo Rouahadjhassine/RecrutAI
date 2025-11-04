@@ -18,7 +18,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const user = await login(email, password);
+      const { user } = await login(email, password);
       const role = user.role as 'candidat' | 'recruteur';
       
       if (onLoginSuccess) {
