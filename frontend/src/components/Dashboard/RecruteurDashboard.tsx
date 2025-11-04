@@ -1,5 +1,5 @@
 // src/components/Dashboard/RecruteurDashboard.tsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, History, Loader2 } from 'lucide-react';
 import Navbar from '../Layout/Navbar';
@@ -8,26 +8,20 @@ import { User } from '../../types';
 interface Props {
   user: User | null;
   onLogout: () => void;
-  loading: boolean;
+  loading?: boolean;
 }
 
-const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading }) => {
+const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading = false }) => {
   const navigate = useNavigate();
 
-  // Redirect if user is not authenticated
-  useEffect(() => {
-    // Only redirect if we're not loading and there's no user
-    if (!loading && !user) {
-      console.log('RecruteurDashboard: Redirection vers /login');
-      navigate('/login', { replace: true });
-    }
-  }, [user, loading, navigate]);
-
-  // Show loading state while checking authentication
+  // Show loading state
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-white" />
+        <div className="text-white text-xl flex flex-col items-center">
+          <Loader2 className="w-8 h-8 animate-spin mb-2" />
+          <span>Chargement du tableau de bord...</span>
+        </div>
       </div>
     );
   }
@@ -39,7 +33,7 @@ const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading }) => {
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-2">
-            Bienvenue, {user.first_name || 'recruteur'} !
+            Bienvenue, {user?.first_name || 'utilisateur'} !
           </h2>
           <p className="text-purple-100 text-lg">
             Trouvez les meilleurs talents en un clic
