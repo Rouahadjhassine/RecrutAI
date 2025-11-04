@@ -1,16 +1,36 @@
 // src/components/Dashboard/CandidatDashboard.tsx
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, BarChart3, History } from 'lucide-react';
+import { Upload, BarChart3, History, Loader2 } from 'lucide-react';
 import Navbar from '../Layout/Navbar';
 import { User } from '../../types';
 
 interface Props {
-  user: User;
+  user: User | null;
   onLogout: () => void;
+  loading: boolean;
 }
 
-export default function CandidatDashboard({ user, onLogout }: Props) {
+const CandidatDashboard: React.FC<Props> = ({ user, onLogout, loading }) => {
   const navigate = useNavigate();
+
+  // Redirect if user is not authenticated
+  useEffect(() => {
+    // Only redirect if we're not loading and there's no user
+    if (!loading && !user) {
+      console.log('CandidatDashboard: Redirection vers /login');
+      navigate('/login', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  // Show loading state while checking authentication
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-white" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600">
@@ -19,7 +39,7 @@ export default function CandidatDashboard({ user, onLogout }: Props) {
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-2">
-            Bienvenue, {user.first_name} !
+            Bienvenue, {user?.first_name || 'utilisateur'} !
           </h2>
           <p className="text-blue-100 text-lg">
             Analysez votre CV et boostez vos chances
@@ -63,4 +83,6 @@ export default function CandidatDashboard({ user, onLogout }: Props) {
       </div>
     </div>
   );
-}
+};
+
+export default CandidatDashboard;

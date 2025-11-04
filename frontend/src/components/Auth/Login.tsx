@@ -1,12 +1,12 @@
 // src/components/Auth/Login.tsx
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Briefcase } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
 interface LoginProps {
   onLoginSuccess?: (role: 'candidat' | 'recruteur') => void;
-  onShowRegister: () => void;
+  onShowRegister?: () => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) => {
@@ -20,9 +20,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
     try {
       const user = await login(email, password);
       const role = user.role as 'candidat' | 'recruteur';
-      onLoginSuccess?.(role);
-      navigate('/dashboard');
-    } catch {}
+      
+      // Appeler la fonction de succès si elle existe
+      if (onLoginSuccess) {
+        onLoginSuccess(role);
+      }
+      
+      // Forcer un rechargement de la page pour s'assurer que tout est bien initialisé
+      window.location.href = role === 'candidat' 
+        ? '/candidat/dashboard' 
+        : '/recruteur/dashboard';
+    } catch (err) {
+      console.error('Échec de la connexion:', err);
+    }
   };
 
   return (
@@ -44,7 +54,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="votre@email.com"
                 required
               />
             </div>
@@ -54,24 +65,37 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="••••••••"
                 required
               />
             </div>
-            {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
+            
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50"
             >
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
-          <div className="mt-6 text-center">
-            <button onClick={onShowRegister} className="text-blue-600 hover:text-blue-800">
-              Créer un compte
-            </button>
-          </div>
+          
+          {onShowRegister && (
+            <div className="mt-6 text-center">
+              <button 
+                onClick={onShowRegister} 
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Créer un compte
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
