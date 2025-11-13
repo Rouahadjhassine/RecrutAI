@@ -1,5 +1,5 @@
 // src/App.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { Login } from './components/Auth/Login';
@@ -18,32 +18,51 @@ const ProtectedRoute: React.FC<{
   requiredRole?: 'candidat' | 'recruteur' 
 }> = ({ children, requiredRole }) => {
   const { user, loading } = useAuth();
+  const [initialCheck, setInitialCheck] = useState(true);
 
-  if (loading) {
+  useEffect(() => {
+    // Marquer que le contrôle initial est terminé après le premier rendu
+    if (initialCheck) {
+      setInitialCheck(false);
+    }
+  }, [initialCheck]);
+
+  // Afficher un indicateur de chargement pendant le chargement initial
+  if (loading && initialCheck) {
     return <LoadingSpinner />;
   }
 
+  // Si l'utilisateur n'est pas connecté, rediriger vers la page de connexion
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: window.location.pathname }} replace />;
   }
 
+  // Vérifier si l'utilisateur a le rôle requis
   if (requiredRole && user.role !== requiredRole) {
     // Rediriger vers le bon dashboard selon le rôle
-    if (user.role === 'candidat') {
-      return <Navigate to="/candidat/dashboard" replace />;
-    } else {
-      return <Navigate to="/recruteur/dashboard" replace />;
-    }
+    const redirectPath = user.role === 'candidat' ? '/candidat/dashboard' : '/recruteur/dashboard';
+    return <Navigate to={redirectPath} replace />;
   }
 
+  // Si tout est bon, afficher le contenu protégé
   return <>{children}</>;
 };
 
 function App() {
   const { user, loading, logout } = useAuth();
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    // Marquer l'application comme initialisée après le premier rendu
+    const timer = setTimeout(() => {
+      setIsInitialized(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Afficher un indicateur de chargement pendant le chargement initial
-  if (loading) {
+  if (loading || !isInitialized) {
     return <LoadingSpinner />;
   }
 

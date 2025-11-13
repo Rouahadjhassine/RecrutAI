@@ -1,4 +1,4 @@
 # nlp_service/__init__.py
-from .analyzer import CVAnalyzer
+from .analyzer import MLCVAnalyzer
 
-__all__ = ['CVAnalyzer']
+__all__ = ['MLCVAnalyzer']

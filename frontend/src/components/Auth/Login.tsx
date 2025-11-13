@@ -1,8 +1,8 @@
 // src/components/Auth/Login.tsx
 import React, { useState } from 'react';
 import { Briefcase } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { authService } from '../../services/authService';
 
 interface LoginProps {
   onLoginSuccess?: (role: 'candidat' | 'recruteur') => void;
@@ -13,7 +13,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, loading, error } = useAuth();
-  const navigate = useNavigate();
+  // La navigation est maintenant gérée via window.location.href
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,18 +21,25 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onShowRegister }) 
       const user = await login(email, password);
       const role = user.role as 'candidat' | 'recruteur';
       
+      // Attendre que l'état soit mis à jour
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Vérifier à nouveau l'état d'authentification
+      const isAuthenticated = authService.isAuthenticated();
+      console.log('Login - isAuthenticated after login:', isAuthenticated);
+      
+      // Appeler le callback de succès si fourni
       if (onLoginSuccess) {
         onLoginSuccess(role);
       }
       
-      // Navigation selon le rôle
-      if (role === 'candidat') {
-        navigate('/candidat/dashboard');
-      } else {
-        navigate('/recruteur/dashboard');
-      }
+      // Forcer un rechargement complet de la page pour s'assurer que tout est bien initialisé
+      const redirectPath = role === 'candidat' ? '/candidat/dashboard' : '/recruteur/dashboard';
+      console.log('Redirecting to:', redirectPath);
+      window.location.href = redirectPath;
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error('Échec de la connexion:', err);
+      // L'erreur est déjà gérée par le hook useAuth
     }
   };
 

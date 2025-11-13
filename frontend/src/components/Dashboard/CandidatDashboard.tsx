@@ -1,65 +1,79 @@
 // src/components/Dashboard/CandidatDashboard.tsx
-import React from 'react';
+import React, { useState } from 'react';
+import { History, FileSearch } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, BarChart3, History } from 'lucide-react';
-import Navbar from '../Layout/Navbar';
 import { User } from '../../types';
+import CVAnalysisWizard from '../CV/CVAnalysisWizard';
+import Navbar from '../Layout/Navbar';
 
 interface Props {
-  user: User;
+  user: User & { username?: string };
   onLogout: () => void;
 }
 
 const CandidatDashboard: React.FC<Props> = ({ user, onLogout }) => {
   const navigate = useNavigate();
+  const [activeView, setActiveView] = useState<'dashboard' | 'analysis'>('dashboard');
+
+  if (activeView === 'analysis') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <CVAnalysisWizard 
+            user={user} 
+            onAnalysisComplete={() => {
+              setActiveView('dashboard');
+            }} 
+          />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600">
+      {/* Barre de navigation */}
       <Navbar user={user} onLogout={onLogout} role="candidat" />
-
+      
+      {/* Contenu principal */}
       <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-2">
-            Bienvenue, {user.first_name} !
-          </h2>
-          <p className="text-blue-100 text-lg">
-            Analysez votre CV et boostez vos chances
-          </p>
-        </div>
+        <h1 className="text-4xl font-bold text-white mb-4 text-center">
+          Bonjour, {user.first_name || user.username || 'Utilisateur'} !
+        </h1>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          <div
-            onClick={() => navigate('/upload')}
-            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
-          >
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Upload className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Uploader un CV</h3>
-            <p className="text-gray-600">PDF → Analyse IA instantanée</p>
-          </div>
+      <p className="text-xl text-white/90 text-center mb-12">
+        Que souhaitez-vous faire aujourd'hui ?
+      </p>
 
-          <div
-            onClick={() => navigate('/analyze')}
-            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
+        {/* Grille de boutons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Bouton Analyse de CV */}
+          <button
+            onClick={() => setActiveView('analysis')}
+            className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-2xl hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full"
           >
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <BarChart3 className="w-8 h-8 text-purple-600" />
+            <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+              <FileSearch className="w-10 h-10 text-blue-600" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Analyser une offre</h3>
-            <p className="text-gray-600">Score de compatibilité en temps réel</p>
-          </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Analyser un CV</h2>
+            <p className="text-gray-600 text-center">
+              Analysez votre CV avec une offre d'emploi pour évaluer votre adéquation
+            </p>
+          </button>
 
-          <div
-            onClick={() => navigate('/history')}
-            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
+          {/* Bouton Historique */}
+          <button
+            onClick={() => navigate('/candidat/history')}
+            className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-2xl hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full"
           >
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <History className="w-8 h-8 text-green-600" />
+            <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+              <History className="w-10 h-10 text-purple-600" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Historique</h3>
-            <p className="text-gray-600">Toutes vos analyses passées</p>
-          </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Historique</h2>
+            <p className="text-gray-600 text-center">
+              Consultez vos analyses précédentes et vos statistiques
+            </p>
+          </button>
         </div>
       </div>
     </div>

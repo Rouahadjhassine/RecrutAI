@@ -41,6 +41,19 @@ export interface AnalysisResult {
   candidat_name?: string;
 }
 
+// === Analyse complète du CV ===
+export interface CVAnalysisResult {
+  cv_id: number;
+  match_score: number;
+  matching_skills: string[];
+  missing_skills: string[];
+  summary: string;
+  advice: string;
+  created_at: string;
+  cv_file_name?: string;
+  candidat_name?: string;
+}
+
 // === Classement ===
 export interface RankedCV {
   cv_id: number;

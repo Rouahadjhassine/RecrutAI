@@ -4,6 +4,9 @@ from . import views
 
 urlpatterns = [
     # === CANDIDAT ===
+    path('candidat/analyze-job/<int:cv_id>/', views.analyze_job_with_cv, name='analyze-job-with-cv'),
+    path('candidat/cvs/', views.manage_cv, name='candidat-cvs'),
+    path('candidat/cvs/<int:cv_id>/', views.manage_cv, name='candidat-delete-cv'),
     path('candidat/upload/', views.upload_cv_candidat, name='candidat-upload'),
     path('candidat/analyze/', views.analyze_candidat, name='candidat-analyze'),
 

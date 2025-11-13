@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import CV, AnalysisResult
+from .models import CV, AnalysisResult, AnalysisResult
 from .serializers import CVSerializer, AnalysisResultSerializer
 from nlp_service.analyzer import MLCVAnalyzer
 from django.core.mail import send_mail
@@ -21,6 +21,88 @@ User = get_user_model()
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def analyze_job_with_cv(request, cv_id):
+    """
+    Analyser une offre d'emploi avec un CV existant
+    """
+    try:
+        # Récupérer le CV
+        cv = CV.objects.get(id=cv_id, candidat=request.user)
+        
+        # Vérifier si l'offre d'emploi est fournie
+        job_description = request.data.get('job_description')
+        if not job_description:
+            return Response({'error': 'Le texte de l\'offre d\'emploi est requis'}, status=400)
+        
+        # Analyser le CV avec l'offre d'emploi
+        logger.info(f'Début de l\'analyse - CV ID: {cv_id}, Taille du CV: {len(cv.extracted_text) if cv.extracted_text else 0} caractères')
+        logger.info(f'Type de cv.extracted_text: {type(cv.extracted_text)}')
+        logger.info(f'Type de job_description: {type(job_description)}')
+        logger.info(f'Extrait du CV: {str(cv.extracted_text)[:200]}...' if cv.extracted_text else 'Aucun texte extrait du CV')
+        logger.info(f'Extrait de l\'offre: {str(job_description)[:200]}...' if job_description else 'Aucune offre fournie')
+        
+        # Vérifier si le texte extrait est None ou vide
+        if not cv.extracted_text or not cv.extracted_text.strip():
+            logger.error('Le texte extrait du CV est vide ou None')
+            return Response({'error': 'Le texte extrait du CV est vide'}, status=400)
+        
+        try:
+            analysis_result = analyzer.analyze(cv.extracted_text, job_description)
+            logger.info(f'Résultat de l\'analyse: {analysis_result}')
+        except Exception as e:
+            logger.error(f'Erreur lors de l\'analyse: {str(e)}', exc_info=True)
+            raise
+        
+        # Sauvegarder le résultat dans l'historique
+        result = AnalysisResult(
+            cv=cv,
+            job_offer_text=job_description,
+            compatibility_score=analysis_result.get('match_score', 0),
+            matched_keywords=analysis_result.get('matched_skills', []),
+            missing_keywords=analysis_result.get('missing_skills', []),
+            summary=analysis_result.get('analysis_summary', '')
+        )
+        result.save()
+        
+        # Retourner le résultat
+        return Response({
+            'id': result.id,
+            'cv_id': cv.id,
+            'cv_name': cv.file_name,
+            'match_score': result.compatibility_score,
+            'missing_skills': result.missing_keywords,
+            'matched_skills': result.matched_keywords,
+            'analysis_summary': result.summary,
+            'created_at': result.created_at
+        })
+        
+    except CV.DoesNotExist:
+        return Response({'error': 'CV non trouvé'}, status=404)
+    except Exception as e:
+        logger.error(f'Erreur lors de l\'analyse: {str(e)}')
+        return Response({'error': 'Une erreur est survenue lors de l\'analyse'}, status=500)
+
+@api_view(['GET', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def manage_cv(request, cv_id=None):
+    if request.method == 'GET':
+        # Récupérer tous les CVs de l'utilisateur
+        cvs = CV.objects.filter(candidat=request.user).order_by('-uploaded_at')
+        return Response({
+            'cvs': CVSerializer(cvs, many=True).data,
+            'max_cvs': 5
+        })
+        
+    elif request.method == 'DELETE':
+        try:
+            cv = CV.objects.get(id=cv_id, candidat=request.user)
+            cv.delete()
+            return Response({'message': 'CV supprimé avec succès'}, status=200)
+        except CV.DoesNotExist:
+            return Response({'error': 'CV non trouvé'}, status=404)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def upload_cv_candidat(request):
     """Candidat upload son CV"""
@@ -28,12 +110,17 @@ def upload_cv_candidat(request):
         return Response({'error': 'Accès refusé'}, status=403)
 
     file = request.FILES.get('file')
-    if not file or not file.name.lower().endswith('.pdf'):
-        return Response({'error': 'PDF requis'}, status=400)
+    if not file:
+        return Response({'error': 'Aucun fichier fourni'}, status=400)
+        
+    if not file.name.lower().endswith('.pdf'):
+        return Response({'error': 'Seuls les fichiers PDF sont acceptés'}, status=400)
 
-    # Limite : 5 CVs max par candidat
-    if CV.objects.filter(candidat=request.user).count() >= 5:
-        return Response({'error': 'Maximum 5 CVs atteint'}, status=400)
+    # Vérifier la limite de 5 CVs et supprimer le plus ancien si nécessaire
+    max_cvs = 5
+    user_cvs = CV.objects.filter(candidat=request.user).order_by('uploaded_at')
+    if user_cvs.count() >= max_cvs:
+        user_cvs.first().delete()
 
     # Extraction texte
     extracted_text = analyzer.extract_text_from_pdf(file)
