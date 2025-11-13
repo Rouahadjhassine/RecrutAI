@@ -1,30 +1,17 @@
 // src/components/Dashboard/RecruteurDashboard.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, History, Loader2, FileSearch } from 'lucide-react';
+import { BarChart3, History } from 'lucide-react';
 import Navbar from '../Layout/Navbar';
 import { User } from '../../types';
 
 interface Props {
-  user: User | null;
+  user: User;
   onLogout: () => void;
-  loading?: boolean;
 }
 
-const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading = false }) => {
+const RecruteurDashboard: React.FC<Props> = ({ user, onLogout }) => {
   const navigate = useNavigate();
-
-  // Show loading state
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 flex items-center justify-center">
-        <div className="text-white text-xl flex flex-col items-center">
-          <Loader2 className="w-8 h-8 animate-spin mb-2" />
-          <span>Chargement du tableau de bord...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500">
@@ -33,28 +20,17 @@ const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading = false }
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-2">
-            Bienvenue, {user?.first_name || 'utilisateur'} !
+            Bienvenue, {user.first_name} !
           </h2>
           <p className="text-purple-100 text-lg">
             Trouvez les meilleurs talents en un clic
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <div
-            onClick={() => navigate('/recruteur/analyze')}
-            className="bg-white rounded-xl shadow-2xl p-6 text-center cursor-pointer transform hover:scale-105 transition duration-300"
-          >
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileSearch className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Analyser des CVs</h3>
-            <p className="text-gray-600">Analysez plusieurs CVs à la fois</p>
-          </div>
-
-          <div
-            onClick={() => navigate('/recruteur/ranking')}
-            className="bg-white rounded-xl shadow-2xl p-6 text-center cursor-pointer transform hover:scale-105 transition duration-300"
+            onClick={() => navigate('/rank')}
+            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
           >
             <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <BarChart3 className="w-8 h-8 text-purple-600" />
@@ -65,7 +41,7 @@ const RecruteurDashboard: React.FC<Props> = ({ user, onLogout, loading = false }
 
           <div
             onClick={() => navigate('/history')}
-            className="bg-white rounded-xl shadow-2xl p-6 text-center cursor-pointer transform hover:scale-105 transition duration-300"
+            className="bg-white rounded-xl shadow-2xl p-8 text-center cursor-pointer transform hover:scale-105 transition duration-300"
           >
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <History className="w-8 h-8 text-green-600" />

@@ -14,7 +14,7 @@ interface AnalysisResult {
   summary: string;
 }
 
-const CandidatAnalysisPage = ({ user }: { user: User }) => {
+export default function CandidatAnalysisPage({ user }: { user: User }) {
   const [file, setFile] = useState<File | null>(null);
   const [cvUploaded, setCvUploaded] = useState(false);
   const [jobText, setJobText] = useState('');
@@ -23,72 +23,21 @@ const CandidatAnalysisPage = ({ user }: { user: User }) => {
 
   // Upload CV
   const handleUpload = async () => {
-    if (!file) {
-      alert('Veuillez sélectionner un fichier à télécharger');
-      return;
-    }
-
-    // Validate file type and size
-    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    const maxSize = 5 * 1024 * 1024; // 5MB
-
-    if (!validTypes.includes(file.type)) {
-      alert('Type de fichier non supporté. Veuillez télécharger un fichier PDF ou Word (DOC/DOCX)');
-      return;
-    }
-
-    if (file.size > maxSize) {
-      alert('Le fichier est trop volumineux. La taille maximale autorisée est de 5 Mo');
-      return;
-    }
+    if (!file) return;
 
     setLoading(true);
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('candidat_id', user.id.toString());
 
     try {
-      const response = await api.post('/api/cvs/candidat/upload/', formData, {
-        headers: { 
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        timeout: 30000 // 30 seconds timeout
+      const res = await api.post('/api/cvs/candidat/upload/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
-      if (response.status === 201) {
-        setCvUploaded(true);
-        alert('CV uploadé avec succès !');
-        setFile(null);
-      }
+      setCvUploaded(true);
+      alert('CV uploadé avec succès !');
+      setFile(null);
     } catch (err: any) {
-      console.error('Upload error:', err);
-      
-      if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Response data:', err.response.data);
-        console.error('Response status:', err.response.status);
-        console.error('Response headers:', err.response.headers);
-        
-        if (err.response.status === 413) {
-          alert('Le fichier est trop volumineux. La taille maximale autorisée est de 5 Mo');
-        } else if (err.response.status === 400) {
-          alert(`Erreur de validation : ${JSON.stringify(err.response.data)}`);
-        } else if (err.response.status === 500) {
-          alert('Erreur serveur. Veuillez réessayer plus tard ou contacter le support.');
-        } else {
-          alert(`Erreur lors de l'upload du CV: ${err.response.data?.detail || err.response.statusText}`);
-        }
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error('No response received:', err.request);
-        alert('Pas de réponse du serveur. Vérifiez votre connexion internet et réessayez.');
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Request setup error:', err.message);
-        alert(`Erreur lors de la configuration de la requête: ${err.message}`);
-      }
+      alert(err.response?.data?.error || 'Erreur d\'upload');
     } finally {
       setLoading(false);
     }
@@ -278,6 +227,4 @@ const CandidatAnalysisPage = ({ user }: { user: User }) => {
       </div>
     </div>
   );
-};
-
-export default CandidatAnalysisPage;
+}

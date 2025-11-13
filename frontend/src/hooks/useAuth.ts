@@ -3,126 +3,75 @@ import { useState, useEffect } from 'react';
 import { authService } from '../services/authService';
 import { User } from '../types';
 
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<{ user: User }>;
-  register: (userData: any) => Promise<{ user: User }>;
-  logout: () => void;
-  isAuthenticated: boolean;
-  initialized: boolean;
-}
-
-export const useAuth = (): AuthContextType => {
-  const [user, setUser] = useState<User | null>(() => {
-    // Initialize with user from localStorage if available
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-  
+export const useAuth = () => {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
 
-  // Initialize auth state on mount
   useEffect(() => {
-    let isMounted = true;
-    
-    const initializeAuth = async () => {
+    const loadUser = async () => {
       try {
-        if (isMounted) setLoading(true);
-        
-        console.log('Initialisation de l\'authentification...');
-        const user = await authService.initialize();
-        
-        if (isMounted) {
-          setUser(user);
-          setError(null);
+        if (authService.isAuthenticated()) {
+          const userData = await authService.getCurrentUser();
+          setUser(userData);
         }
       } catch (err) {
-        console.error('Échec de l\'initialisation de l\'authentification:', err);
-        if (isMounted) {
-          setError('Impossible de charger l\'état d\'authentification');
-        }
+        console.error('Failed to load user', err);
+        authService.logout();
       } finally {
-        if (isMounted) {
-          setLoading(false);
-          setInitialized(true);
-        }
-      }
-    };
-
-    initializeAuth();
-
-    // S'abonner aux changements d'état d'authentification
-    const unsubscribe = authService.onAuthStateChanged((currentUser) => {
-      console.log('Changement d\'état d\'authentification détecté:', currentUser);
-      if (isMounted) {
-        setUser(currentUser);
         setLoading(false);
       }
-    });
-
-    return () => {
-      isMounted = false;
-      unsubscribe();
     };
+
+    loadUser();
   }, []);
 
-  // Helper to handle auth operations with loading and error states
-  const executeAuthOperation = async (
-    operation: () => Promise<{ user: User }>
-  ) => {
-    setLoading(true);
+  const login = async (email: string, password: string) => {
     setError(null);
-    
+    setLoading(true);
     try {
-      const result = await operation();
-      // Ne pas mettre à jour l'état ici car cela sera géré par l'écouteur d'état
-      // Le setUser est déjà géré par l'écouteur d'état dans le useEffect
-      return result;
+      const { user } = await authService.login({ email, password });
+      setUser(user);
+      return user;
     } catch (err: any) {
-      console.error('Erreur lors de l\'opération d\'authentification:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Une erreur est survenue';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      const errorMsg = err.response?.data?.message || 'Échec de la connexion';
+      setError(errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
-    return executeAuthOperation(() => 
-      authService.login({ email, password })
-    );
-  };
-
   const register = async (userData: any) => {
-    return executeAuthOperation(() => 
-      authService.register(userData)
-    );
-  };
-
-  const logout = () => {
+    setError(null);
+    setLoading(true);
     try {
-      console.log('Déconnexion en cours...');
-      authService.logout();
-      // Le setUser sera effectué par l'écouteur d'état
-    } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
-      setError('Erreur lors de la déconnexion');
+      const { user } = await authService.register(userData);
+      setUser(user);
+      return user;
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || 'Échec de l\'inscription';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return {
-    user,
-    loading: loading || !initialized,
-    error,
-    login,
-    register,
-    logout,
-    isAuthenticated: !!user,
-    initialized
+  const logout = () => {
+    authService.logout();
+    setUser(null);
   };
-}
+
+  const clearError = () => setError(null);
+
+  return { 
+    user, 
+    loading, 
+    error, 
+    login, 
+    logout, 
+    register,
+    clearError 
+  };
+};
