@@ -9,7 +9,7 @@ from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import re
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 import logging
 import torch
 
@@ -233,6 +233,60 @@ class MLCVAnalyzer:
         summary = ". ".join(summary_sentences)
         
         return summary + ("." if not summary.endswith('.') else "")
+    
+    # ============================================
+    # ANALYSE D'UN SEUL CV
+    # ============================================
+    
+    def analyze(self, cv_text: str, job_description: str) -> Dict:
+        """
+        Analyse un CV par rapport à une offre d'emploi
+        Args:
+            cv_text: Texte extrait du CV
+            job_description: Description de l'offre d'emploi
+        Returns:
+            Dictionnaire contenant les résultats de l'analyse
+        """
+        if not cv_text or not job_description:
+            return {
+                'match_score': 0,
+                'missing_skills': [],
+                'analysis_summary': 'Erreur: CV ou offre d\'emploi vide',
+                'cv_skills': [],
+                'job_skills': []
+            }
+        
+        try:
+            # 1. Calculer la compatibilité globale
+            match_score, matched_skills, missing_skills = self.calculate_compatibility(
+                cv_text, job_description
+            )
+            
+            # 2. Extraire les compétences
+            cv_skills = self.extract_skills(cv_text)
+            job_skills = self.extract_skills(job_description)
+            
+            # 3. Générer un résumé
+            summary = self.summarize_cv(cv_text)
+            
+            return {
+                'match_score': match_score,
+                'missing_skills': missing_skills,
+                'analysis_summary': summary,
+                'cv_skills': cv_skills,
+                'job_skills': job_skills,
+                'matched_skills': matched_skills
+            }
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'analyse: {str(e)}", exc_info=True)
+            return {
+                'match_score': 0,
+                'missing_skills': [],
+                'analysis_summary': f"Erreur lors de l'analyse: {str(e)}",
+                'cv_skills': [],
+                'job_skills': []
+            }
     
     # ============================================
     # CLASSEMENT MULTIPLE

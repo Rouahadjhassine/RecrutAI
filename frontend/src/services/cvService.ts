@@ -1,17 +1,59 @@
 import api from './api';
-import { CV, AnalysisResult, RankedCV } from '../types';
+import { CV, AnalysisResult, RankedCV, CVAnalysisResult } from '../types';
 
 export const cvService = {
   async uploadCV(file: File): Promise<CV> {
-    const form = new FormData();
-    form.append('file', file);
-    const res = await api.post('/api/cvs/upload/', form);
-    return res.data.cv;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    console.log('Envoi du fichier:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified
+    });
+    
+    try {
+      const res = await api.post('/api/cvs/candidat/upload/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json',
+        },
+        transformRequest: (data, headers) => {
+          // Ne pas transformer les données pour FormData
+          if (data instanceof FormData) {
+            return data;
+          }
+          return data;
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          console.log(`Progression de l'upload: ${progress}%`);
+        }
+      });
+      
+      console.log('Réponse du serveur:', res.data);
+      return res.data.cv;
+      
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'Erreur inconnue';
+      console.error('Erreur lors de l\'upload:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: errorMessage
+      });
+      throw new Error(`Échec de l'upload du CV: ${errorMessage}`);
+    }
   },
 
-  async getMyCVs(): Promise<CV[]> {
-    const res = await api.get('/api/cvs/my-cvs/');
+  async getMyCVs(): Promise<{cvs: CV[], max_cvs: number}> {
+    const res = await api.get('/api/cvs/candidat/cvs/');
     return res.data;
+  },
+
+  async deleteCV(cvId: number): Promise<void> {
+    await api.delete(`/api/cvs/candidat/cvs/${cvId}/`);
   },
 
   async getAllCVs(): Promise<CV[]> {
@@ -46,6 +88,11 @@ export const cvService = {
       subject,
       message
     });
+  },
+  
+  async analyzeWithJobDescription(cvId: number, jobData: { job_description: string }): Promise<CVAnalysisResult> {
+    const response = await api.post(`/api/cvs/candidat/analyze-job/${cvId}/`, jobData);
+    return response.data;
   },
 
   async getHistory(): Promise<AnalysisResult[]> {

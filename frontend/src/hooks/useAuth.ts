@@ -30,9 +30,21 @@ export const useAuth = () => {
     setError(null);
     setLoading(true);
     try {
-      const { user } = await authService.login({ email, password });
-      setUser(user);
-      return user;
+      // On ne stocke pas le user de la réponse car on va le récupérer avec getCurrentUser
+      await authService.login({ email, password });
+      // Forcer une mise à jour de l'état utilisateur avec un délai
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const currentUser = await authService.getCurrentUser(true);
+      
+      // S'assurer que l'utilisateur est bien défini
+      if (!currentUser) {
+        throw new Error('Impossible de récupérer les informations utilisateur');
+      }
+      
+      // Mettre à jour l'état utilisateur
+      setUser(currentUser);
+      
+      return currentUser;
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || 'Échec de la connexion';
       setError(errorMsg);
