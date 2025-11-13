@@ -1,14 +1,26 @@
 // src/pages/RankPage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Layout/Navbar';
 import RankingTable from '../components/CV/RankingTable';
 import { User } from '../types';
 import { cvService } from '../services/cvService';
 
-export default function RankPage({ user }: { user: User }) {
+export default function RankPage({ user }: { user: User | null }) {
+  const navigate = useNavigate();
   const [jobText, setJobText] = useState('');
   const [rankings, setRankings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  if (!user) {
+    return null; // ou un composant de chargement
+  }
 
   const rank = async () => {
     if (!jobText.trim()) return;

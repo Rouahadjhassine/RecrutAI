@@ -5,14 +5,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import CV, AnalysisResult
 from .serializers import CVSerializer, AnalysisResultSerializer
-from nlp_service.analyzer import CVAnalyzer
+from nlp_service.analyzer import MLCVAnalyzer
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
 import logging
 import re
 
 logger = logging.getLogger(__name__)
-analyzer = CVAnalyzer()
+analyzer = MLCVAnalyzer()
 User = get_user_model()
 
 # ============================================

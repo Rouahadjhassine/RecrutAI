@@ -1,5 +1,4 @@
-import { FileText, Upload as UploadIcon } from 'lucide-react';
-import { cvService } from '../../services/cvService';
+import { Upload as UploadIcon } from 'lucide-react';
 
 interface Props {
   onUpload: (file: File) => void;

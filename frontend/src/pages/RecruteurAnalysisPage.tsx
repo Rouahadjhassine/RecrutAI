@@ -1,6 +1,6 @@
 // src/pages/RecruteurAnalysisPage.tsx
-import React, { useState, useRef } from 'react'; // ChangeEvent non utilisé
-import { Upload, Mail, Download, BarChart2, FileText } from 'lucide-react'; // X, Search, Users, CheckCircle non utilisés
+import React, { useState } from 'react';
+import { Upload, BarChart3, Mail, Download } from 'lucide-react';
 import Navbar from '../components/Layout/Navbar';
 import { User } from '../types';
 import api from '../services/api';
@@ -13,7 +13,6 @@ interface RankedCV {
   score: number;
   matched_keywords: string[];
   missing_keywords: string[];
-  summary?: string;
 }
 
 interface SingleAnalysisResult {
@@ -26,293 +25,238 @@ interface SingleAnalysisResult {
   summary: string;
 }
 
-const MAX_CVS = 10;
-
-interface RecruteurAnalysisPageProps {
-  user: User;
-  initialMode?: 'single' | 'multiple' | 'ranking';
-}
-
-const RecruteurAnalysisPage = ({ user, initialMode = 'multiple' }: RecruteurAnalysisPageProps) => {
+export default function RecruteurAnalysisPage({ user }: { user: User }) {
+  const [mode, setMode] = useState<'single' | 'multiple'>('single');
   const [files, setFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadedCVs] = useState<RankedCV[]>([]);
+  const [uploadedCVs, setUploadedCVs] = useState<any[]>([]);
   const [jobText, setJobText] = useState('');
+  const [selectedCVId, setSelectedCVId] = useState<number | null>(null);
+  const [singleResult, setSingleResult] = useState<SingleAnalysisResult | null>(null);
   const [rankings, setRankings] = useState<RankedCV[]>([]);
   const [loading, setLoading] = useState(false);
-  const [, setError] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const [, setAnalysisComplete] = useState(false);
-  const [singleResult] = useState<SingleAnalysisResult | null>(null);
-  const [mode] = useState<'single' | 'multiple' | 'ranking'>(
-    initialMode === 'ranking' ? 'multiple' : initialMode
-  );
 
-  // Gestion du glisser-déposer
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  // Upload CVs
+  const handleUpload = async () => {
+    if (files.length === 0) return;
     
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const newFiles = Array.from(e.dataTransfer.files);
-      handleFiles(newFiles);
-    }
-  };
-
-  const handleFiles = (newFiles: File[]) => {
-    const remainingSlots = MAX_CVS - files.length;
-    
-    if (newFiles.length > remainingSlots) {
-      setError(`Vous ne pouvez télécharger que ${remainingSlots} CV(s) supplémentaire(s).`);
-      return;
-    }
-
-    // Filtrer les fichiers non-PDF
-    const validFiles = newFiles.filter(file => 
-      file.type === 'application/pdf' || 
-      file.type === 'application/msword' || 
-      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    );
-    
-    if (validFiles.length === 0) {
-      setError('Veuillez sélectionner des fichiers PDF ou Word (DOC/DOCX) valides.');
-      return;
-    }
-
-    setFiles(prev => [...prev, ...validFiles]);
-    setError('');
-  };
-
-  // Fonction de téléchargement des CVs (désactivée mais conservée pour référence)
-  // const handleUpload = async () => {
-  //   if (files.length === 0) {
-  //     setError('Veuillez sélectionner au moins un CV à télécharger');
-  //     return;
-  //   }
-  //   // ... reste de l'implémentation ...
-  // };
-
-  // Analyse des CVs
-  const handleAnalyze = async () => {
-    if (!jobText.trim()) {
-      setError('Veuillez saisir une description de poste');
-      return;
-    }
-
-    if (uploadedCVs.length === 0) {
-      setError('Veuillez d\'abord télécharger des CVs à analyser');
-      return;
-    }
-
     setLoading(true);
-    setError('');
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
 
     try {
-      const cvIds = uploadedCVs.map(cv => cv.cv_id);
-      const response = await api.post('/api/cvs/analyze-multiple/', {
-        cv_ids: cvIds,
-        job_description: jobText
+      const res = await api.post('/api/cvs/recruteur/upload/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      if (response.status === 200) {
-        setRankings(response.data.rankings);
-        setAnalysisComplete(true);
-      }
-    } catch (err: any) {
-      console.error('Erreur lors de l\'analyse des CVs:', err);
-      setError(err.response?.data?.message || 'Erreur lors de l\'analyse des CVs');
+      setUploadedCVs(res.data.uploaded_cvs);
+      alert(`${res.data.uploaded_cvs.length} CV(s) uploadé(s)`);
+      setFiles([]);
+    } catch (err) {
+      alert('Erreur lors de l\'upload');
     } finally {
       setLoading(false);
     }
   };
 
+  // Analyse 1 CV
+  const analyzeSingle = async () => {
+    if (!selectedCVId || !jobText.trim()) return;
+    
+    setLoading(true);
+    try {
+      const res = await api.post('/api/cvs/recruteur/analyze-single/', {
+        cv_id: selectedCVId,
+        job_offer_text: jobText
+      });
+      setSingleResult(res.data);
+    } catch (err) {
+      alert('Erreur d\'analyse');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Fonction pour exporter les résultats en CSV
+  // Classement multiple
+  const rankMultiple = async () => {
+    if (!jobText.trim()) return;
+    
+    setLoading(true);
+    try {
+      const res = await api.post('/api/cvs/recruteur/rank/', {
+        job_offer_text: jobText
+      });
+      setRankings(res.data.rankings);
+    } catch (err) {
+      alert('Erreur de classement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Envoi email
+  const sendEmail = async (candidateId: number, name: string, score: number) => {
+    const subject = `Opportunité : Score ${score}%`;
+    const message = `Bonjour ${name},\n\nVotre profil a obtenu un score de ${score}% pour notre offre.\n\nCordialement,\nL'équipe RecrutAI`;
+    
+    try {
+      await api.post('/api/cvs/send-email/', {
+        candidate_id: candidateId,
+        subject,
+        message
+      });
+      alert('Email envoyé !');
+    } catch (err) {
+      alert('Erreur d\'envoi');
+    }
+  };
+
+  // Export CSV
   const exportCSV = () => {
-    if (rankings.length === 0) return;
+    const csv = rankings.map((r, i) => ({
+      Rang: i + 1,
+      Nom: r.candidat_name,
+      Email: r.candidat_email,
+      Score: r.score,
+      Compétences: r.matched_keywords.join('; ')
+    }));
     
-    const headers = ['Rang', 'Nom', 'Email', 'Score', 'Compétences correspondantes'];
-    const csvContent = [
-      headers.join(','),
-      ...rankings.map((r: RankedCV, i: number) => [
-        i + 1,
-        `"${r.candidat_name}"`,
-        `"${r.candidat_email}"`,
-        r.score,
-        `"${r.matched_keywords.join(', ')}"`
-      ].join(','))
-    ].join('\n');
+    const headers = Object.keys(csv[0]).join(',');
+    const rows = csv.map(row => Object.values(row).join(','));
+    const data = [headers, ...rows].join('\n');
     
-    const blob = new Blob([`﻿${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([data], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `classement-cvs-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Gestion du changement de la description du poste
-  const handleJobTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setJobText(e.target.value);
-  };
-
-  // Fonction pour envoyer un email au candidat
-  const sendEmail = (candidatId: number, candidatName: string, score: number) => {
-    // Implémentez la logique d'envoi d'email ici
-    console.log(`Envoi d'email à ${candidatName} (ID: ${candidatId}) avec un score de ${score}%`);
-    // Exemple d'implémentation avec window.location
-    window.location.href = `mailto:${candidatName}?subject=Votre candidature&body=Bonjour ${candidatName},%0D%0A%0D%0AVotre score est de ${score}%.`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'classement_cvs.csv';
+    a.click();
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-red-500">
       <Navbar user={user} onLogout={() => {}} role="recruteur" />
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Analyse des CVs</h1>
-        
-        {/* Zone de dépôt de fichiers */}
-        <div 
-          className={`border-2 border-dashed rounded-lg p-12 text-center mb-8 ${
-            isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-          }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <div className="space-y-4">
-            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-            <div className="text-sm text-gray-600">
-              <label className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500">
-                <span>Téléchargez un fichier</span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="sr-only"
-                  multiple
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      handleFiles(Array.from(e.target.files));
-                    }
-                  }}
-                />
-              </label>
-              <p className="pl-1">ou glissez-déposez</p>
-            </div>
-            <p className="text-xs text-gray-500">
-              PDF, DOC, DOCX jusqu'à {MAX_CVS} fichiers (max 10MB chacun)
-            </p>
-          </div>
-        </div>
+      
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <h2 className="text-4xl font-bold text-white mb-8 text-center">
+          Analyse de CVs
+        </h2>
 
-        {/* Liste des fichiers sélectionnés */}
-        {files.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Fichiers sélectionnés ({files.length}/{MAX_CVS})</h3>
-            <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
-              {files.map((file, index) => (
-                <li key={index} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
-                  <div className="w-0 flex-1 flex items-center">
-                    <FileText className="flex-shrink-0 h-5 w-5 text-gray-400" />
-                    <span className="ml-2 flex-1 w-0 truncate">
-                      {file.name}
-                    </span>
-                  </div>
-                  <div className="ml-4 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newFiles = [...files];
-                        newFiles.splice(index, 1);
-                        setFiles(newFiles);
-                      }}
-                      className="font-medium text-red-600 hover:text-red-500"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Job Description */}
-        <div className="mb-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Description du poste</h3>
-          <textarea
-            className="w-full h-40 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Copiez-collez ici la description du poste à pourvoir..."
-            value={jobText}
-            onChange={handleJobTextChange}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            {jobText.trim() === '' && (
-              <p className="text-gray-500 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Ajoutez une description de poste pour commencer
-              </p>
-            )}
-            {jobText.trim() && uploadedCVs.length === 0 && (
-              <p className="text-amber-600 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                Téléchargez au moins un CV pour l'analyse
-              </p>
-            )}
-            {jobText.trim() && uploadedCVs.length > 0 && (
-              <p className="text-green-600 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Prêt à analyser {uploadedCVs.length} CV(s)
-              </p>
-            )}
-          </div>
-
+        {/* Toggle Mode */}
+        <div className="flex justify-center gap-4 mb-8">
           <button
-            type="button"
-            onClick={handleAnalyze}
-            disabled={loading || jobText.trim() === '' || uploadedCVs.length === 0}
-            className={`px-6 py-3 rounded-lg font-medium text-white flex items-center ${
-              loading || jobText.trim() === '' || uploadedCVs.length === 0
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
+            onClick={() => setMode('single')}
+            className={`px-6 py-3 rounded-lg font-semibold ${
+              mode === 'single'
+                ? 'bg-white text-purple-600'
+                : 'bg-white/20 text-white hover:bg-white/30'
             }`}
           >
-            {loading ? (
-              <span className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Analyse en cours...
-              </span>
-            ) : (
-              <span className="flex items-center">
-                <BarChart2 className="w-5 h-5 mr-2" />
-                Lancer l'analyse
-              </span>
-            )}
+            1 CV
+          </button>
+          <button
+            onClick={() => setMode('multiple')}
+            className={`px-6 py-3 rounded-lg font-semibold ${
+              mode === 'multiple'
+                ? 'bg-white text-purple-600'
+                : 'bg-white/20 text-white hover:bg-white/30'
+            }`}
+          >
+            Plusieurs CVs
+          </button>
+        </div>
+
+        {/* Upload Section */}
+        <div className="bg-white rounded-xl shadow-2xl p-8 mb-8">
+          <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+            <Upload className="w-6 h-6" />
+            Uploader des CVs
+          </h3>
+          
+          <input
+            type="file"
+            accept=".pdf"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files || []))}
+            className="block w-full text-sm mb-4 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-purple-600 file:text-white hover:file:bg-purple-700"
+          />
+          
+          {files.length > 0 && (
+            <div className="mb-4">
+              <p className="font-medium mb-2">{files.length} fichier(s) sélectionné(s) :</p>
+              <ul className="text-sm text-gray-600">
+                {files.map((f, i) => (
+                  <li key={i}>• {f.name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <button
+            onClick={handleUpload}
+            disabled={loading || files.length === 0}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-bold hover:shadow-lg disabled:opacity-50"
+          >
+            {loading ? 'Upload...' : 'Uploader'}
+          </button>
+
+          {uploadedCVs.length > 0 && (
+            <div className="mt-6">
+              <p className="font-medium mb-2 text-green-700">
+                ✓ {uploadedCVs.length} CV(s) uploadé(s)
+              </p>
+              <div className="max-h-40 overflow-y-auto">
+                {uploadedCVs.map((cv, i) => (
+                  <div key={i} className="text-sm text-gray-700 border-b py-2">
+                    <strong>{cv.candidat_name}</strong> - {cv.candidat_email}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Analysis Section */}
+        <div className="bg-white rounded-xl shadow-2xl p-8 mb-8">
+          <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+            <BarChart3 className="w-6 h-6" />
+            Offre d'emploi
+          </h3>
+
+          <textarea
+            value={jobText}
+            onChange={(e) => setJobText(e.target.value)}
+            rows={8}
+            className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none mb-4"
+            placeholder="Collez le texte de l'offre d'emploi ici..."
+          />
+
+          {mode === 'single' && uploadedCVs.length > 0 && (
+            <div className="mb-4">
+              <label className="block font-medium mb-2">Sélectionner un CV :</label>
+              <select
+                value={selectedCVId || ''}
+                onChange={(e) => setSelectedCVId(Number(e.target.value))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">-- Choisir --</option>
+                {uploadedCVs.map((cv) => (
+                  <option key={cv.cv_id} value={cv.cv_id}>
+                    {cv.candidat_name} ({cv.candidat_email})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            onClick={mode === 'single' ? analyzeSingle : rankMultiple}
+            disabled={loading || !jobText.trim() || (mode === 'single' && !selectedCVId)}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-bold hover:shadow-lg disabled:opacity-50"
+          >
+            {loading
+              ? 'Analyse en cours...'
+              : mode === 'single'
+              ? 'Analyser 1 CV'
+              : 'Classer tous les CVs'}
           </button>
         </div>
 
@@ -438,6 +382,4 @@ const RecruteurAnalysisPage = ({ user, initialMode = 'multiple' }: RecruteurAnal
       </div>
     </div>
   );
-};
-
-export default RecruteurAnalysisPage;
+}

@@ -1,12 +1,24 @@
 // src/pages/UploadPage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Layout/Navbar';
 import UploadCV from '../components/CV/UploadCV';
 import { User } from '../types';
 import { cvService } from '../services/cvService';
 
-export default function UploadPage({ user }: { user: User }) {
+export default function UploadPage({ user }: { user: User | null }) {
+  const navigate = useNavigate();
   const [uploaded, setUploaded] = useState<any>(null);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  if (!user) {
+    return null; // ou un composant de chargement
+  }
 
   const handleUpload = async (file: File) => {
     console.log('Fichier reçu dans handleUpload:', file);

@@ -7,24 +7,33 @@ import { Register } from './components/Auth/Register';
 import { LoadingSpinner } from './components/Shared/LoadingSpinner';
 import CandidatDashboard from './components/Dashboard/CandidatDashboard';
 import RecruteurDashboard from './components/Dashboard/RecruteurDashboard';
-import CandidatAnalysisPage from './pages/CandidatAnalysisPage';
-import RecruteurAnalysisPage from './pages/RecruteurAnalysisPage';
+import UploadPage from './pages/UploadPage';
+import AnalyzePage from './pages/AnalyzePage';
+import RankPage from './pages/RankPage';
 import HistoryPage from './pages/HistoryPage';
 
+// Composant de protection des routes
 const ProtectedRoute: React.FC<{ 
   children: React.ReactNode; 
   requiredRole?: 'candidat' | 'recruteur' 
 }> = ({ children, requiredRole }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return <LoadingSpinner />;
-  if (!user) return <Navigate to="/login" replace />;
-  
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   if (requiredRole && user.role !== requiredRole) {
-    const redirectPath = user.role === 'candidat' 
-      ? "/candidat/dashboard" 
-      : "/recruteur/dashboard";
-    return <Navigate to={redirectPath} replace />;
+    // Rediriger vers le bon dashboard selon le rôle
+    if (user.role === 'candidat') {
+      return <Navigate to="/candidat/dashboard" replace />;
+    } else {
+      return <Navigate to="/recruteur/dashboard" replace />;
+    }
   }
 
   return <>{children}</>;
@@ -33,7 +42,36 @@ const ProtectedRoute: React.FC<{
 function App() {
   const { user, loading, logout } = useAuth();
 
-  if (loading) return <LoadingSpinner />;
+  // Afficher un indicateur de chargement pendant le chargement initial
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  // Fonction pour rendre les routes protégées avec l'utilisateur
+  const renderProtectedRoutes = (role: 'candidat' | 'recruteur') => {
+    if (!user) return <Navigate to="/login" replace />;
+    
+    if (role === 'candidat') {
+      return (
+        <Routes>
+          <Route path="dashboard" element={<CandidatDashboard user={user} onLogout={logout} />} />
+          <Route path="upload" element={<UploadPage user={user} />} />
+          <Route path="analyze" element={<AnalyzePage user={user} />} />
+          <Route path="history" element={<HistoryPage user={user} />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
+        </Routes>
+      );
+    } else {
+      return (
+        <Routes>
+          <Route path="dashboard" element={<RecruteurDashboard user={user} onLogout={logout} />} />
+          <Route path="rank" element={<RankPage user={user} />} />
+          <Route path="history" element={<HistoryPage user={user} />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
+        </Routes>
+      );
+    }
+  };
 
   return (
     <Routes>
@@ -63,64 +101,29 @@ function App() {
         } 
       />
 
-      {/* Routes CANDIDAT */}
-      <Route
-        path="/candidat/dashboard"
+      {/* Routes protégées pour les candidats */}
+      <Route 
+        path="/candidat/*" 
         element={
           <ProtectedRoute requiredRole="candidat">
-            <CandidatDashboard user={user!} onLogout={logout} loading={loading} />
+            {renderProtectedRoutes('candidat')}
           </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/candidat/analyze"
-        element={
-          <ProtectedRoute requiredRole="candidat">
-            <CandidatAnalysisPage user={user!} />
-          </ProtectedRoute>
-        }
+        } 
       />
 
-      {/* Routes RECRUTEUR */}
-      <Route
-        path="/recruteur/dashboard"
+      {/* Routes protégées pour les recruteurs */}
+      <Route 
+        path="/recruteur/*" 
         element={
           <ProtectedRoute requiredRole="recruteur">
-            <RecruteurDashboard user={user!} onLogout={logout} />
+            {renderProtectedRoutes('recruteur')}
           </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/recruteur/analyze"
-        element={
-          <ProtectedRoute requiredRole="recruteur">
-            <RecruteurAnalysisPage user={user!} />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/recruteur/ranking"
-        element={
-          <ProtectedRoute requiredRole="recruteur">
-            <RecruteurAnalysisPage user={user!} initialMode="ranking" />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Route commune : Historique */}
-      <Route
-        path="/history"
-        element={
-          <ProtectedRoute>
-            <HistoryPage user={user!} />
-          </ProtectedRoute>
-        }
+        } 
       />
 
       {/* Redirection par défaut */}
-      <Route
-        path="/"
+      <Route 
+        path="/" 
         element={
           user ? (
             user.role === 'candidat' 
@@ -129,9 +132,10 @@ function App() {
           ) : (
             <Navigate to="/login" replace />
           )
-        }
+        } 
       />
 
+      {/* Route 404 */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
