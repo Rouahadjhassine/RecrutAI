@@ -6,7 +6,11 @@ import RankingTable from '../components/CV/RankingTable';
 import { User } from '../types';
 import { cvService } from '../services/cvService';
 
-export default function RankPage({ user }: { user: User | null }) {
+interface RankPageProps {
+  user: User | null;
+}
+
+export default function RankPage({ user }: RankPageProps) {
   const navigate = useNavigate();
   const [jobText, setJobText] = useState('');
   const [rankings, setRankings] = useState<any[]>([]);

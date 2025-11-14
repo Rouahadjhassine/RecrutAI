@@ -68,18 +68,74 @@ export const cvService = {
     return res.data;
   },
 
-  async rank(jobText: string): Promise<RankedCV[]> {
-    const res = await api.post('/api/cvs/rank/', { job_offer_text: jobText });
-    return res.data.rankings;
+  async rank(jobText: string, cvIds?: number[]): Promise<RankedCV[]> {
+    const payload: { job_offer_text: string, cv_ids?: number[] } = { 
+      job_offer_text: jobText 
+    };
+    
+    if (cvIds && cvIds.length > 0) {
+      payload.cv_ids = cvIds;
+    }
+    
+    const res = await api.post('/api/cvs/recruteur/rank/', payload);
+    return res.data.rankings || [];
   },
 
-  async rankCVs(formData: FormData): Promise<RankedCV[]> {
-    const { data } = await api.post('/cvs/recruteur/rank/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  async uploadCVsAsRecruiter(files: File[]): Promise<{id: number}[]> {
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
     });
-    return data.rankings;
+
+    try {
+      const response = await api.post('/api/cvs/recruteur/upload/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      return response.data.uploaded_cvs || [];
+    } catch (error: any) {
+      console.error('Erreur lors de l\'upload des CVs:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw new Error(`Échec de l'upload des CVs: ${error.response?.data?.error || error.message}`);
+    }
+  },
+
+  async rankCVs(files: File[], jobDescription: string): Promise<RankedCV[]> {
+    try {
+      // Télécharger les CVs avec l'endpoint recruteur
+      const uploadedCVs = await this.uploadCVsAsRecruiter(files);
+      
+      if (uploadedCVs.length === 0) {
+        throw new Error('Aucun CV n\'a pu être uploadé');
+      }
+      
+      // Ensuite, envoyer la requête de classement avec les IDs des CVs
+      console.log('Envoi de la demande de classement...', {
+        cv_ids: uploadedCVs.map(cv => cv.id),
+        job_offer_text: jobDescription.substring(0, 50) + '...' // Log partiel pour éviter la pollution
+      });
+      
+      const response = await api.post('/api/cvs/recruteur/rank/', {
+        cv_ids: uploadedCVs.map(cv => cv.id),
+        job_offer_text: jobDescription
+      });
+      
+      return response.data.rankings || [];
+    } catch (error: any) {
+      console.error('Erreur lors du classement des CVs:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
   },
 
   async sendEmail(candidateId: number, subject: string, message: string) {
