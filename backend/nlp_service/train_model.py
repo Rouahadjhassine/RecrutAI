@@ -1,9 +1,4 @@
-# train_model.py - Entraînement du modèle ML avec dataset Kaggle
-"""
-Ce script entraîne un modèle de classification/matching CV-Job
-avec un dataset Kaggle (Resume Dataset ou LinkedIn Jobs)
-"""
-
+# nlp_service/train_model.py - VERSION CORRIGÉE
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -15,11 +10,14 @@ from sklearn.preprocessing import LabelEncoder
 import joblib
 import re
 import os
+import sys
 
 # Pour embeddings avancés (optionnel)
-from sentence_transformers import SentenceTransformer
-import torch
-
+try:
+    from sentence_transformers import SentenceTransformer
+    import torch
+except ImportError:
+    print("⚠️  Sentence-transformers non installé, utilisation de TF-IDF uniquement")
 
 class CVJobMatcher:
     """
@@ -40,7 +38,11 @@ class CVJobMatcher:
         self.sbert_model = None
         
         if model_type == 'sbert':
-            self.sbert_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            try:
+                self.sbert_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            except ImportError:
+                print("❌ Sentence-transformers non installé, basculement vers TF-IDF")
+                self.model_type = 'tfidf_rf'
     
     def clean_text(self, text):
         """Nettoie le texte"""
@@ -97,15 +99,16 @@ class CVJobMatcher:
                 max_features=5000,
                 ngram_range=(1, 2),
                 min_df=2,
-                max_df=0.8
+                max_df=0.8,
+                stop_words='english'
             )
             X_train_vec = self.vectorizer.fit_transform(X_train)
             X_test_vec = self.vectorizer.transform(X_test)
             
             print("🌲 Entraînement Random Forest...")
             self.classifier = RandomForestClassifier(
-                n_estimators=200,
-                max_depth=30,
+                n_estimators=100,  # Réduit pour plus de rapidité
+                max_depth=20,
                 min_samples_split=5,
                 random_state=random_state,
                 n_jobs=-1
@@ -226,49 +229,84 @@ class CVJobMatcher:
 # SCRIPT D'ENTRAÎNEMENT PRINCIPAL
 # ============================================
 
+def find_dataset_file():
+    """Trouve le fichier dataset dans différents emplacements possibles"""
+    possible_paths = [
+        'UpdatedResumeDataSet.csv',  # Dans le dossier courant
+        '../UpdatedResumeDataSet.csv',  # Dans le dossier parent
+        os.path.join(os.path.dirname(__file__), 'UpdatedResumeDataSet.csv'),  # Dans le même dossier
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'UpdatedResumeDataSet.csv'),  # Dans backend
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            print(f"✅ Dataset trouvé : {path}")
+            return path
+    
+    # Si non trouvé, lister les fichiers disponibles
+    print("❌ Dataset non trouvé. Fichiers disponibles :")
+    current_dir = os.path.dirname(__file__) if __file__ else os.getcwd()
+    for file in os.listdir(current_dir):
+        if file.endswith('.csv'):
+            print(f"   📄 {file}")
+    
+    for file in os.listdir(os.path.dirname(current_dir)):
+        if file.endswith('.csv'):
+            print(f"   📄 ../{file}")
+    
+    return None
+
 def train_from_kaggle_dataset(
-    csv_path='UpdatedResumeDataSet.csv',
+    csv_path=None,
     model_type='tfidf_rf',
     save_path='models/cv_job_matcher.pkl'
 ):
     """
     Entraîne le modèle à partir d'un dataset Kaggle
-    
-    Args:
-        csv_path: chemin vers le CSV Kaggle
-        model_type: 'tfidf_rf' ou 'sbert'
-        save_path: où sauvegarder le modèle
-    
-    Usage:
-        # Téléchargez d'abord le dataset depuis Kaggle :
-        # https://www.kaggle.com/datasets/gauravduttakiit/resume-dataset
-        
-        train_from_kaggle_dataset(
-            csv_path='UpdatedResumeDataSet.csv',
-            model_type='tfidf_rf'
-        )
     """
     print("=" * 60)
     print("🎯 ENTRAÎNEMENT MODÈLE CV-JOB MATCHER")
     print("=" * 60)
     
-    # 1. Charger dataset Kaggle
-    print("\n📂 Chargement du dataset Kaggle...")
-    df = pd.read_csv(csv_path)
-    print(f"✅ Dataset chargé : {len(df)} exemples")
-    print(f"📋 Catégories : {df['Category'].nunique()}")
-    print(f"   → {df['Category'].unique()[:5]}...")
+    # 1. Trouver le dataset
+    if csv_path is None:
+        csv_path = find_dataset_file()
     
-    # 2. Initialiser modèle
+    if not csv_path or not os.path.exists(csv_path):
+        print("❌ Impossible de trouver le dataset UpdatedResumeDataSet.csv")
+        print("📋 Veuillez télécharger le dataset depuis :")
+        print("   https://www.kaggle.com/datasets/gauravduttakiit/resume-dataset")
+        print("📁 Et le placer dans le dossier backend/")
+        return None
+    
+    # 2. Charger dataset Kaggle
+    print("\n📂 Chargement du dataset...")
+    try:
+        df = pd.read_csv(csv_path, encoding='latin-1')
+        print(f"✅ Dataset chargé : {len(df)} exemples")
+        print(f"📋 Colonnes : {list(df.columns)}")
+        
+        if 'Category' in df.columns:
+            print(f"🎯 Catégories : {df['Category'].nunique()}")
+            print(f"   → {df['Category'].unique()[:10]}...")
+        else:
+            print("❌ Colonne 'Category' non trouvée dans le dataset")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Erreur lors du chargement du dataset : {e}")
+        return None
+    
+    # 3. Initialiser modèle
     matcher = CVJobMatcher(model_type=model_type)
     
-    # 3. Préparer données
+    # 4. Préparer données
     X_text, y_labels = matcher.prepare_data(df)
     
-    # 4. Entraîner
+    # 5. Entraîner
     accuracy = matcher.train(X_text, y_labels)
     
-    # 5. Sauvegarder
+    # 6. Sauvegarder
     matcher.save_model(save_path)
     
     print("\n" + "=" * 60)
@@ -286,31 +324,35 @@ def test_model(model_path='models/cv_job_matcher.pkl'):
     """Teste le modèle entraîné"""
     print("\n🧪 TEST DU MODÈLE")
     
-    matcher = CVJobMatcher.load_model(model_path)
-    
-    # Exemple de CV
-    cv_test = """
-    John Doe - Data Scientist
-    Skills: Python, Machine Learning, TensorFlow, Pandas, SQL
-    Experience: 5 years in data science and ML model development
-    Developed predictive models for customer churn, NLP systems
-    """
-    
-    # Exemple d'offre
-    job_test = """
-    We are looking for a Senior Data Scientist with expertise in
-    machine learning, Python, and NLP. 5+ years experience required.
-    Must know TensorFlow, PyTorch, and cloud platforms.
-    """
-    
-    # Prédiction catégorie
-    category, confidence = matcher.predict_category(cv_test)
-    print(f"\n📊 Catégorie prédite : {category}")
-    print(f"🎯 Confiance : {confidence*100:.2f}%")
-    
-    # Score de match
-    score = matcher.calculate_match_score(cv_test, job_test)
-    print(f"💯 Score de match CV-Job : {score}%")
+    try:
+        matcher = CVJobMatcher.load_model(model_path)
+        
+        # Exemple de CV
+        cv_test = """
+        John Doe - Data Scientist
+        Skills: Python, Machine Learning, TensorFlow, Pandas, SQL
+        Experience: 5 years in data science and ML model development
+        Developed predictive models for customer churn, NLP systems
+        """
+        
+        # Exemple d'offre
+        job_test = """
+        We are looking for a Senior Data Scientist with expertise in
+        machine learning, Python, and NLP. 5+ years experience required.
+        Must know TensorFlow, PyTorch, and cloud platforms.
+        """
+        
+        # Prédiction catégorie
+        category, confidence = matcher.predict_category(cv_test)
+        print(f"\n📊 Catégorie prédite : {category}")
+        print(f"🎯 Confiance : {confidence*100:.2f}%")
+        
+        # Score de match
+        score = matcher.calculate_match_score(cv_test, job_test)
+        print(f"💯 Score de match CV-Job : {score}%")
+        
+    except Exception as e:
+        print(f"❌ Erreur lors du test : {e}")
 
 
 # ============================================
@@ -323,11 +365,9 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'train':
         # Mode entraînement
         train_from_kaggle_dataset(
-            csv_path='UpdatedResumeDataSet.csv',
-  # Téléchargé depuis Kaggle
             model_type='tfidf_rf',  # ou 'sbert'
             save_path='models/cv_job_matcher.pkl'
         )
     else:
-        # Mode testa
+        # Mode test
         test_model('models/cv_job_matcher.pkl')

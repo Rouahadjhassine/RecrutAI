@@ -1,6 +1,5 @@
 import { Mail, Download } from 'lucide-react';
 import { RankedCV } from '../../types';
-import { cvService } from '../../services/cvService';
 
 interface Props {
   rankings: RankedCV[];
@@ -8,29 +7,56 @@ interface Props {
 
 export default function RankingTable({ rankings }: Props) {
   const exportCSV = () => {
-    const csv = rankings.map(r => ({
-      Rang: rankings.indexOf(r) + 1,
-      Nom: r.candidat_name,
-      Email: r.candidat_email,
-      Score: r.score,
-      Match: r.matched_keywords.join(', '),
-      Manque: r.missing_keywords.join(', ')
+    if (rankings.length === 0) return;
+    
+    const csv = rankings.map((r, index) => ({
+      Rang: index + 1,
+      Nom: r.candidat_name || 'Non spécifié',
+      Email: r.candidat_email || '',
+      Score: r.score || 0,
+      Match: (r.matched_keywords || []).join(', '),
+      Manque: (r.missing_keywords || []).join(', ')
     }));
-    const data = [Object.keys(csv[0]), ...csv.map(Object.values)].map(e => e.join(',')).join('\n');
-    const blob = new Blob([data], { type: 'text/csv' });
+    
+    const headers = ['Rang', 'Nom', 'Email', 'Score', 'Match', 'Manque'];
+    const data = [headers, ...csv.map(item => [
+      item.Rang,
+      `"${item.Nom}"`,
+      item.Email,
+      item.Score,
+      `"${item.Match}"`,
+      `"${item.Manque}"`
+    ].join(','))].join('\n');
+    
+    const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'classement.csv';
     a.click();
   };
+  const handleEmailClick = (email: string, name: string, score: number) => {
+  if (!email || email === 'Non extrait' || !email.includes('@')) {
+    alert(`Aucun email valide trouvé pour ${name}`);
+    return;
+  }
 
-  const sendEmail = async (cv: RankedCV) => {
-    const subject = `Félicitations ! Score: ${cv.score}%`;
-    const message = `Bonjour ${cv.candidat_name},\n\nVotre CV a obtenu ${cv.score}% de compatibilité.\n\nCordialement.`;
-    await cvService.sendEmail(cv.candidat_id, subject, message);
-    alert('Email envoyé');
-  };
+  const subject = `Candidature - Score de compatibilité: ${score}%`;
+  const body = `Bonjour ${name},\n\nVotre profil a obtenu un score de compatibilité de ${score}% avec notre offre.\n\nNous souhaiterions échanger avec vous concernant cette opportunité.\n\nCordialement,\nL'équipe Recrutement`;
+
+  // URL Gmail avec pré-remplissage
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  
+  window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+};
+
+  if (rankings.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        Aucun classement disponible. Veuillez analyser des CV pour voir les résultats.
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -63,9 +89,14 @@ export default function RankingTable({ rankings }: Props) {
                 </span>
               </td>
               <td className="px-6 py-4">
-                <button onClick={() => sendEmail(r)} className="text-primary">
-                  <Mail className="w-5 h-5" />
-                </button>
+                <button 
+  onClick={() => handleEmailClick(r.candidat_email, r.candidat_name, r.score)}
+  className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+  title="Ouvrir dans Gmail"
+>
+  <Mail className="w-4 h-4" />
+  Contacter
+</button>
               </td>
             </tr>
           ))}

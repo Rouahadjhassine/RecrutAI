@@ -11,6 +11,7 @@ import UploadPage from './pages/UploadPage';
 import AnalyzePage from './pages/AnalyzePage';
 import RankPage from './pages/RankPage';
 import HistoryPage from './pages/HistoryPage';
+import RecruiterRankingPage from './pages/RecruiterRankingPage';
 
 // Composant de protection des routes
 const ProtectedRoute: React.FC<{ 
@@ -85,6 +86,7 @@ function App() {
         <Routes>
           <Route path="dashboard" element={<RecruteurDashboard user={user} onLogout={logout} />} />
           <Route path="rank" element={<RankPage user={user} />} />
+          <Route path="classement-ia" element={<RecruiterRankingPage user={user} />} />
           <Route path="history" element={<HistoryPage user={user} />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Routes>

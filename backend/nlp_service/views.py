@@ -236,7 +236,13 @@ def analyze_recruteur_single(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def rank_cvs_recruteur(request):
-    """Recruteur : Classer TOUS les CVs vs offre (ordre décroissant)"""
+    """
+    Recruteur : Classer des CVs spécifiques vs offre (ordre décroissant)
+    
+    Attend dans le corps de la requête :
+    - job_offer_text (obligatoire) : le texte de l'offre d'emploi
+    - cv_ids (optionnel) : liste d'IDs de CVs à analyser. Si non fourni, tous les CVs sont analysés
+    """
     if request.user.role != 'recruteur':
         return Response({'error': 'Accès refusé'}, status=403)
 
@@ -244,33 +250,51 @@ def rank_cvs_recruteur(request):
     if not job_text:
         return Response({'error': 'job_offer_text requis'}, status=400)
 
-    cvs = CV.objects.all()
+    # Récupérer les CVs à analyser
+    cv_ids = request.data.get('cv_ids')
+    if cv_ids and isinstance(cv_ids, list):
+        cvs = CV.objects.filter(id__in=cv_ids)
+    else:
+        cvs = CV.objects.all()
+    
     if not cvs.exists():
-        return Response({'error': 'Aucun CV disponible'}, status=404)
+        return Response({'error': 'Aucun CV disponible pour analyse'}, status=404)
 
+    # Préparer la réponse
     rankings = []
+    
+    # Analyser chaque CV
     for cv in cvs:
-        score, matched, missing = analyzer.calculate_compatibility(cv.extracted_text, job_text)
-        
-        # Extraction info candidat
-        name = cv.parsed_data.get('extracted_name', cv.candidat.get_full_name())
-        email = cv.parsed_data.get('extracted_email', cv.candidat.email)
+        try:
+            # Calculer le score de compatibilité
+            score, matched, missing = analyzer.calculate_compatibility(cv.extracted_text, job_text)
+            
+            # Extraire les informations du candidat
+            name = cv.parsed_data.get('extracted_name', cv.candidat.get_full_name() if cv.candidat else 'Candidat inconnu')
+            email = cv.parsed_data.get('extracted_email', cv.candidat.email if cv.candidat else '')
+            candidat_id = cv.candidat.id if cv.candidat else None
 
-        rankings.append({
-            'cv_id': cv.id,
-            'candidat_name': name,
-            'candidat_email': email,
-            'candidat_id': cv.candidat.id,
-            'score': score,
-            'matched_keywords': matched,
-            'missing_keywords': missing
-        })
+            rankings.append({
+                'cv_id': cv.id,
+                'candidat_name': name,
+                'candidat_email': email,
+                'candidat_id': candidat_id,
+                'score': score,
+                'matched_keywords': matched,
+                'missing_keywords': missing
+            })
+            
+            logger.info(f"CV {cv.id} analysé - Score: {score}")
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'analyse du CV {cv.id}: {str(e)}")
+            continue
 
-    # Tri décroissant
+    # Trier par score décroissant
     rankings.sort(key=lambda x: x['score'], reverse=True)
 
     return Response({
-        'message': f'{len(rankings)} CVs analysés',
+        'message': f'{len(rankings)} CVs analysés avec succès',
         'rankings': rankings
     })
 
@@ -350,3 +374,22 @@ def extract_email_from_cv(text: str) -> str:
     email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
     match = re.search(email_pattern, text)
     return match.group(0) if match else ""
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def analyze_cv_advanced(request):
+    """Analyse avancée avec modèle ML"""
+    cv_text = request.data.get('cv_text', '')
+    job_text = request.data.get('job_text', '')
+    
+    # Analyse complète avec le nouvel analyzer
+    result = analyzer.analyze(cv_text, job_text)
+    
+    return Response({
+        'score': result['match_score'],
+        'category': result['job_category'],
+        'category_confidence': result['category_confidence'],
+        'matched_skills': result['matched_skills'],
+        'missing_skills': result['missing_skills'],
+        'summary': result['analysis_summary'],
+        'ml_model_used': result['ml_model_used']
+    })

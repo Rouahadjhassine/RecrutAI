@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions',
     'rest_framework',
     'corsheaders',
     'accounts',
@@ -160,6 +161,14 @@ os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS Configuration
+CORS_ALLOW_ALL_ORIGINS = True  # En développement uniquement
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Port par défaut de Create React App
+    "http://127.0.0.1:3000",
+]
 
 # JWT Settings
 SIMPLE_JWT = {

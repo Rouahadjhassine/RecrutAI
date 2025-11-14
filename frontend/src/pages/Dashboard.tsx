@@ -87,13 +87,8 @@ export default function DashboardPage() {
         const res = await cvService.analyze(jobText, cv.id);
         setResult(res);
       } else {
-        const formData = new FormData();
-        cvs.forEach((file, index) => {
-          formData.append(`cv_${index}`, file);
-        });
-        formData.append('job_description', jobText);
-        
-        const res = await cvService.rankCVs(formData);
+        // Appeler rankCVs avec la liste des fichiers et le texte du poste
+        const res = await cvService.rankCVs(cvs, jobText);
         setRankings(res);
       }
     } catch (err) {
