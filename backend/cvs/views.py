@@ -670,38 +670,52 @@ def rank_cvs_recruteur(request):
                 'details': 'Les CVs ne contiennent pas de texte analysable'
             }, status=400)
 
-        # Grouper par email de candidat et ne garder que le meilleur score
+        # Séparer les résultats valides et les erreurs
         valid_rankings = [r for r in rankings if 'error' not in r]
         error_rankings = [r for r in rankings if 'error' in r]
         
-        # Dictionnaire pour stocker le meilleur score par candidat
-        best_scores = {}
+        # Trier les CVs par score décroissant
+        valid_rankings.sort(key=lambda x: x['score'], reverse=True)
         
+        # Grouper par email et ne garder que le meilleur score par candidat
+        best_scores = {}
         for ranking in valid_rankings:
-            email = ranking.get('candidat_email')
+            email = ranking.get('candidat_email', '').lower()
             if not email:
                 continue
                 
             # Si le candidat n'est pas encore dans le dictionnaire ou si on a un meilleur score
             if email not in best_scores or ranking['score'] > best_scores[email]['score']:
+                # Ajouter la liste des fichiers pour ce candidat
+                if email in best_scores:
+                    # Si on a déjà un CV pour ce candidat, on ajoute le fichier à la liste
+                    if 'files' not in ranking:
+                        ranking['files'] = []
+                    if 'files' in best_scores[email]:
+                        ranking['files'].extend(best_scores[email]['files'])
+                    ranking['files'].append(best_scores[email]['cv_filename'])
                 best_scores[email] = ranking
         
-        # Convertir le dictionnaire en liste et trier par score décroissant
+        # Convertir le dictionnaire en liste triée par score décroissant
         unique_rankings = list(best_scores.values())
         unique_rankings.sort(key=lambda x: x['score'], reverse=True)
         
-        # Ajouter les erreurs à la fin
+        # Combiner avec les erreurs
         rankings = unique_rankings + error_rankings
-        
-        logger.info(f"Analyse terminée - {len(unique_rankings)} candidats uniques classés avec succès sur {total_cvs} CVs analysés")
         
         # Mise à jour des métadonnées de la réponse
         response_meta.update({
-            'message': f"{len(valid_rankings)} CV(s) analysé(s) avec succès" + 
-                      (f", {len(error_rankings)} en erreur" if error_rankings else ""),
+            'message': f"{len(unique_rankings)} candidat(s) unique(s) analysé(s) avec succès" + 
+                      (f", {len(error_rankings)} CV(s) en erreur" if error_rankings else "") +
+                      f" (sur {len(valid_rankings) + len(error_rankings)} CVs au total)",
             'total_cvs_analyses': len(valid_rankings),
-            'total_cvs_en_erreur': len(error_rankings)
+            'total_candidates': len(unique_rankings),
+            'total_cvs_en_erreur': len(error_rankings),
+            'note': 'Uniquement le meilleur score par candidat est affiché. Les doublons sont regroupés.'
         })
+        
+        logger.info(f"Analyse terminée - {len(unique_rankings)} candidats uniques sur {len(valid_rankings)} CVs analysés" + 
+                   (f" (dont {len(error_rankings)} en erreur)" if error_rankings else ""))
         
         # Préparation de la réponse finale
         response_data = {
