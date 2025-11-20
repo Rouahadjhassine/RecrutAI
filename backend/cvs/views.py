@@ -193,59 +193,83 @@ def create_or_get_candidate(name: str, email: str, filename: str):
 def analyze_job_with_cv(request, cv_id):
     """
     Analyser une offre d'emploi avec un CV existant
+    Retourne un résultat d'analyse conforme à l'interface CVAnalysisResult du frontend
     """
     try:
-        # Récupérer le CV
-        cv = CV.objects.get(id=cv_id, candidat=request.user)
+        # Récupérer le CV avec les données du candidat
+        cv = CV.objects.select_related('candidat').get(id=cv_id, candidat=request.user)
         
         # Vérifier si l'offre d'emploi est fournie
         job_description = request.data.get('job_description')
         if not job_description:
-            return Response({'error': 'Le texte de l\'offre d\'emploi est requis'}, status=400)
-        
-        # Analyser le CV avec l'offre d'emploi
-        logger.info(f'Début de l\'analyse - CV ID: {cv_id}')
+            return Response(
+                {'error': 'Le texte de l\'offre d\'emploi est requis'}, 
+                status=400
+            )
         
         # Vérifier si le texte extrait est None ou vide
         if not cv.extracted_text or not cv.extracted_text.strip():
-            logger.error('Le texte extrait du CV est vide ou None')
-            return Response({'error': 'Le texte extrait du CV est vide'}, status=400)
+            logger.error(f'Le texte extrait du CV {cv_id} est vide ou None')
+            return Response(
+                {'error': 'Le texte extrait du CV est vide et ne peut pas être analysé'}, 
+                status=400
+            )
         
+        # Analyser le CV avec l'offre d'emploi
         try:
+            logger.info(f'Début de l\'analyse - CV ID: {cv_id}')
             analysis_result = analyzer.analyze(cv.extracted_text, job_description)
             logger.info(f'Résultat de l\'analyse: {analysis_result}')
         except Exception as e:
-            logger.error(f'Erreur lors de l\'analyse: {str(e)}', exc_info=True)
-            raise
+            logger.error(f'Erreur lors de l\'analyse du CV {cv_id}: {str(e)}', exc_info=True)
+            return Response(
+                {'error': f'Erreur lors de l\'analyse du CV: {str(e)}'}, 
+                status=500
+            )
         
         # Sauvegarder le résultat dans l'historique
-        result = AnalysisResult(
-            cv=cv,
-            job_offer_text=job_description,
-            compatibility_score=analysis_result.get('match_score', 0),
-            matched_keywords=analysis_result.get('matched_skills', []),
-            missing_keywords=analysis_result.get('missing_skills', []),
-            summary=analysis_result.get('analysis_summary', '')
-        )
-        result.save()
+        try:
+            result = AnalysisResult.objects.create(
+                cv=cv,
+                job_offer_text=job_description,
+                compatibility_score=analysis_result.get('match_score', 0),
+                matched_keywords=analysis_result.get('matched_skills', []),
+                missing_keywords=analysis_result.get('missing_skills', []),
+                summary=analysis_result.get('analysis_summary', '')
+            )
+            logger.info(f'Résultat d\'analyse enregistré avec l\'ID: {result.id}')
+        except Exception as e:
+            logger.error(f'Erreur lors de la sauvegarde du résultat: {str(e)}')
+            # On continue quand même car l'analyse a réussi, même si la sauvegarde a échoué
         
-        # Retourner le résultat
-        return Response({
-            'id': result.id,
+        # Construire la réponse selon l'interface CVAnalysisResult attendue par le frontend
+        response_data = {
             'cv_id': cv.id,
-            'cv_name': cv.file_name,
-            'match_score': result.compatibility_score,
-            'missing_skills': result.missing_keywords,
-            'matched_skills': result.matched_keywords,
-            'analysis_summary': result.summary,
-            'created_at': result.created_at
-        })
+            'match_score': analysis_result.get('match_score', 0),
+            'matching_skills': analysis_result.get('matched_skills', []),
+            'missing_skills': analysis_result.get('missing_skills', []),
+            'summary': analysis_result.get('analysis_summary', ''),
+            'advice': analysis_result.get('advice', ''),
+            'created_at': timezone.now().isoformat(),
+            'cv_file_name': cv.file_name,
+            'candidat_name': f"{cv.candidat.first_name} {cv.candidat.last_name}".strip() or "Candidat inconnu"
+        }
+        
+        logger.info(f'Analyse terminée avec succès pour le CV {cv_id}')
+        return Response(response_data)
         
     except CV.DoesNotExist:
-        return Response({'error': 'CV non trouvé'}, status=404)
+        logger.error(f'CV non trouvé avec l\'ID: {cv_id}')
+        return Response(
+            {'error': 'CV non trouvé ou vous n\'avez pas la permission d\'y accéder'}, 
+            status=404
+        )
     except Exception as e:
-        logger.error(f'Erreur lors de l\'analyse: {str(e)}')
-        return Response({'error': 'Une erreur est survenue lors de l\'analyse'}, status=500)
+        logger.error(f'Erreur inattendue lors de l\'analyse: {str(e)}', exc_info=True)
+        return Response(
+            {'error': f'Une erreur inattendue est survenue: {str(e)}'}, 
+            status=500
+        )
 
 @api_view(['GET', 'DELETE'])
 @permission_classes([IsAuthenticated])
@@ -270,7 +294,7 @@ def manage_cv(request, cv_id=None):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def upload_cv_candidat(request):
-    """Candidat upload son CV"""
+    """Candidat upload son CV et obtient une analyse automatique"""
     if request.user.role != 'candidat':
         return Response({'error': 'Accès refusé'}, status=403)
 
@@ -285,7 +309,10 @@ def upload_cv_candidat(request):
     max_cvs = 5
     user_cvs = CV.objects.filter(candidat=request.user).order_by('uploaded_at')
     if user_cvs.count() >= max_cvs:
-        user_cvs.first().delete()
+        # Supprimer également les analyses associées
+        cv_to_delete = user_cvs.first()
+        AnalysisResult.objects.filter(cv=cv_to_delete).delete()
+        cv_to_delete.delete()
 
     # Extraction texte
     extracted_text = analyzer.extract_text_from_pdf(file)
@@ -296,7 +323,8 @@ def upload_cv_candidat(request):
     name, email = extract_name_and_email_from_text(extracted_text)
     
     # Extraction compétences + expérience
-    skills = analyzer.extract_skills(extracted_text)
+    skills_dict = analyzer.extract_skills(extracted_text)
+    skills_list = list(skills_dict.keys())  # Convertir en liste de compétences
     experience = analyzer.extract_experience_years(extracted_text)
 
     # Sauvegarde avec toutes les informations extraites
@@ -305,16 +333,78 @@ def upload_cv_candidat(request):
         file=file,
         extracted_text=extracted_text,
         parsed_data={
-            'skills': skills, 
+            'skills': skills_list,  # Utiliser la liste des compétences
+            'skills_with_weights': skills_dict,  # Conserver aussi le dictionnaire complet
             'experience_years': experience,
             'extracted_name': name,
             'extracted_email': email
         }
     )
 
+    # Créer une offre d'emploi par défaut basée sur les compétences du CV
+    default_job_description = f"""
+    Poste recherché : Développeur Full Stack
+    
+    Compétences requises :
+    - {', '.join(skills_list[:5])}
+    - Expérience en développement web
+    - Bonnes pratiques de programmation
+    
+    Missions :
+    - Développement d'applications web complètes
+    - Participation aux réunions d'équipe
+    - Rédaction de documentation technique
+    
+    Profil recherché :
+    - {experience} ans d'expérience minimum
+    - Autonome et force de proposition
+    - Bonne maîtrise des méthodologies agiles
+    """.strip()
+
+    # Effectuer une analyse complète avec l'offre par défaut
+    try:
+        analysis_result = analyzer.analyze(extracted_text, default_job_description)
+        
+        # Créer l'analyse complète
+        analysis = AnalysisResult.objects.create(
+            cv=cv,
+            job_offer_text=default_job_description,
+            compatibility_score=analysis_result.get('match_score', 0),
+            matched_keywords=analysis_result.get('matched_skills', []),
+            missing_keywords=analysis_result.get('missing_skills', []),
+            summary=analysis_result.get('analysis_summary', 
+                f"CV de {name} avec {experience} ans d'expérience. "
+                f"Compétences: {', '.join(skills_list[:5])}{'...' if len(skills_list) > 5 else ''}")
+        )
+        
+        # Mettre à jour le CV avec l'ID de l'analyse
+        cv.parsed_data['initial_analysis_id'] = analysis.id
+        cv.parsed_data['default_analysis'] = True
+        cv.save()
+        
+        message = 'CV uploadé et analysé avec succès avec une offre par défaut'
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de l'analyse automatique : {str(e)}")
+        # En cas d'erreur, créer une analyse basique
+        analysis = AnalysisResult.objects.create(
+            cv=cv,
+            job_offer_text="Analyse initiale du CV",
+            compatibility_score=0.0,
+            matched_keywords=skills_list,
+            missing_keywords=[],
+            summary=f"CV de {name} avec {experience} ans d'expérience. "
+                   f"Compétences: {', '.join(skills_list[:5])}{'...' if len(skills_list) > 5 else ''}"
+        )
+        cv.parsed_data['initial_analysis_id'] = analysis.id
+        cv.parsed_data['default_analysis'] = False
+        cv.save()
+        message = 'CV uploadé avec une analyse basique (erreur lors de l\'analyse complète)'
+
     return Response({
-        'message': 'CV uploadé avec succès',
-        'cv': CVSerializer(cv).data
+        'message': message,
+        'cv': CVSerializer(cv).data,
+        'analysis': AnalysisResultSerializer(analysis).data
     }, status=201)
 
 @api_view(['POST'])
@@ -351,7 +441,8 @@ def upload_cvs_recruteur(request):
             logger.info(f" Fichier {file.name} -> Nom: {name}, Email: {email}")
 
             # Extraction des compétences
-            skills = analyzer.extract_skills(extracted_text)
+            skills_dict = analyzer.extract_skills(extracted_text)
+            skills_list = list(skills_dict.keys())  # Convertir en liste de compétences
             experience = analyzer.extract_experience_years(extracted_text)
 
             # Création ou récupération de l'utilisateur candidat
@@ -367,7 +458,8 @@ def upload_cvs_recruteur(request):
                 # Mettre à jour le CV existant au lieu d'en créer un nouveau
                 existing_cv.file = file
                 existing_cv.parsed_data = {
-                    'skills': skills,
+                    'skills': skills_list,
+                    'skills_with_weights': skills_dict,
                     'experience_years': experience,
                     'extracted_name': name,
                     'extracted_email': email,
@@ -384,7 +476,8 @@ def upload_cvs_recruteur(request):
                     file=file,
                     extracted_text=extracted_text,
                     parsed_data={
-                        'skills': skills,
+                        'skills': skills_list,
+                        'skills_with_weights': skills_dict,
                         'experience_years': experience,
                         'extracted_name': name,
                         'extracted_email': email,
@@ -398,7 +491,7 @@ def upload_cvs_recruteur(request):
                 'file_name': file.name,
                 'candidat_name': name,
                 'candidat_email': email,
-                'skills': list(skills.keys())[:10],
+                'skills': skills_list[:10],  # Utiliser la liste des compétences
                 'experience_years': experience,
                 'text_length': len(extracted_text)
             })
@@ -832,11 +925,26 @@ def send_email_to_candidate(request):
 def get_analysis_history(request):
     """Historique des analyses (candidat : seulement les siennes / recruteur : tout)"""
     if request.user.role == 'candidat':
-        analyses = AnalysisResult.objects.filter(cv__candidat=request.user).order_by('-created_at')
+        analyses = AnalysisResult.objects.filter(cv__candidat=request.user).select_related('cv').order_by('-created_at')
     else:
-        analyses = AnalysisResult.objects.all().order_by('-created_at')
+        analyses = AnalysisResult.objects.all().select_related('cv').order_by('-created_at')
     
-    return Response(AnalysisResultSerializer(analyses, many=True).data)
+    # Sérialiser les résultats avec les champs nécessaires pour le frontend
+    results = []
+    for analysis in analyses:
+        results.append({
+            'id': analysis.id,
+            'cv_id': analysis.cv.id if analysis.cv else None,
+            'cv_file_name': analysis.cv.file_name if analysis.cv else 'CV inconnu',
+            'match_score': analysis.compatibility_score,
+            'created_at': analysis.created_at,
+            'summary': analysis.summary or 'Aucun résumé disponible',
+            'matched_skills': analysis.matched_keywords or [],
+            'missing_skills': analysis.missing_keywords or [],
+            'job_offer_text': analysis.job_offer_text or 'Aucune offre spécifiée',
+        })
+    
+    return Response(results)
 
 # ============================================
 # VUE DE TEST

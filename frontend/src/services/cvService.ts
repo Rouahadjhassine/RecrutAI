@@ -151,8 +151,24 @@ export const cvService = {
     return response.data;
   },
 
-  async getHistory(): Promise<AnalysisResult[]> {
-    const res = await api.get('/api/cvs/history/');
-    return res.data;
+  async getHistory(): Promise<any[]> {
+    try {
+      console.log('Récupération de l\'historique...');
+      const response = await api.get('/api/cvs/history/');
+      console.log('Réponse de l\'API (historique):', response.data);
+      
+      // Le backend filtre déjà par utilisateur, donc on peut retourner directement les données
+      return Array.isArray(response.data) ? response.data : [];
+      
+    } catch (error: any) {
+      console.error('Erreur lors de la récupération de l\'historique:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        config: error.config
+      });
+      throw new Error('Impossible de récupérer l\'historique des analyses. Veuillez réessayer plus tard.');
+    }
   }
 };
