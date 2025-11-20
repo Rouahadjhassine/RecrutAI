@@ -49,11 +49,11 @@ urlpatterns = [
     path('recruteur/analyze-single/', views.analyze_recruteur_single, name='recruteur-analyze-single'),
     path('recruteur/rank/', views.rank_cvs_recruteur, name='recruteur-rank'),
     
+    # COMMUN
+    path('history/', views.get_analysis_history, name='get-analysis-history'),
+    
     # EMAIL
     path('send-email/', views.send_email_to_candidate, name='send-email'),
-    
-    # HISTORIQUE
-    path('history/', views.get_analysis_history, name='history'),
     
     # TEST
     path('test-analyzer/', views.test_analyzer, name='test-analyzer'),

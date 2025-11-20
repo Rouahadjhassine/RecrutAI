@@ -8,10 +8,11 @@ import Navbar from '../Layout/Navbar';
 
 interface CVAnalysisWizardProps {
   user: User;
-  onAnalysisComplete?: (result: any) => void;
+  onAnalysisComplete: (result: any) => void;
+  onBack?: () => void;
 }
 
-const CVAnalysisWizard: React.FC<CVAnalysisWizardProps> = ({ user, onAnalysisComplete }) => {
+const CVAnalysisWizard: React.FC<CVAnalysisWizardProps> = ({ user, onAnalysisComplete, onBack }) => {
   const [jobText, setJobText] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [selectedCV, setSelectedCV] = useState<CV | null>(null);
@@ -108,10 +109,24 @@ const CVAnalysisWizard: React.FC<CVAnalysisWizardProps> = ({ user, onAnalysisCom
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600">
       <Navbar user={user} onLogout={() => {}} role="candidat" />
       <main className="max-w-7xl mx-auto px-6 py-12">
-        <h3 className="text-xl font-semibold mb-4 flex items-center">
-          <FileSearch className="mr-2 text-blue-600" />
-          Analyse de CV et Offre d'Emploi
-        </h3>
+        <div className="mb-6">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center text-white hover:text-blue-100 mb-4 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Retour au tableau de bord
+            </button>
+          )}
+          <h3 className="text-2xl font-bold text-white flex items-center">
+            <FileSearch className="mr-3 text-blue-200" />
+            Analyse de CV et Offre d'Emploi
+          </h3>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-lg">
           {/* Section Sélection CV */}

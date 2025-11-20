@@ -27,11 +27,14 @@ export default function Navbar({ user, onLogout, role }: Props) {
               </button>
             </>
           ) : (
-            <button onClick={() => navigate('/rank')} className="flex items-center gap-2 text-white hover:text-purple-200">
+            <button onClick={() => navigate('rank')} className="flex items-center gap-2 text-white hover:text-purple-200">
               <BarChart3 className="w-5 h-5" /> Classement
             </button>
           )}
-          <button onClick={() => navigate('/history')} className="flex items-center gap-2 text-white hover:text-green-200">
+          <button 
+            onClick={() => navigate(role === 'candidat' ? '/candidat/history' : '/recruteur/history')} 
+            className="flex items-center gap-2 text-white hover:text-green-200"
+          >
             <History className="w-5 h-5" /> Historique
           </button>
           <div className="flex items-center gap-3 text-white">
