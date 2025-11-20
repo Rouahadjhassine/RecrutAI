@@ -235,7 +235,8 @@ def analyze_job_with_cv(request, cv_id):
                 compatibility_score=analysis_result.get('match_score', 0),
                 matched_keywords=analysis_result.get('matched_skills', []),
                 missing_keywords=analysis_result.get('missing_skills', []),
-                summary=analysis_result.get('analysis_summary', '')
+                summary=analysis_result.get('summary', ''),
+                analyzed_by=request.user if request.user.is_authenticated else None
             )
             logger.info(f'Résultat d\'analyse enregistré avec l\'ID: {result.id}')
         except Exception as e:
@@ -374,7 +375,8 @@ def upload_cv_candidat(request):
             missing_keywords=analysis_result.get('missing_skills', []),
             summary=analysis_result.get('analysis_summary', 
                 f"CV de {name} avec {experience} ans d'expérience. "
-                f"Compétences: {', '.join(skills_list[:5])}{'...' if len(skills_list) > 5 else ''}")
+                f"Compétences: {', '.join(skills_list[:5])}{'...' if len(skills_list) > 5 else ''}"),
+            analyzed_by=request.user  # Enregistrer l'utilisateur qui effectue l'analyse
         )
         
         # Mettre à jour le CV avec l'ID de l'analyse
@@ -382,30 +384,17 @@ def upload_cv_candidat(request):
         cv.parsed_data['default_analysis'] = True
         cv.save()
         
-        message = 'CV uploadé et analysé avec succès avec une offre par défaut'
+        return Response({
+            'message': 'CV téléchargé et analysé avec succès',
+            'cv': CVSerializer(cv).data,
+            'analysis': AnalysisResultSerializer(analysis).data
+        }, status=201)
         
     except Exception as e:
-        logger.error(f"Erreur lors de l'analyse automatique : {str(e)}")
-        # En cas d'erreur, créer une analyse basique
-        analysis = AnalysisResult.objects.create(
-            cv=cv,
-            job_offer_text="Analyse initiale du CV",
-            compatibility_score=0.0,
-            matched_keywords=skills_list,
-            missing_keywords=[],
-            summary=f"CV de {name} avec {experience} ans d'expérience. "
-                   f"Compétences: {', '.join(skills_list[:5])}{'...' if len(skills_list) > 5 else ''}"
-        )
-        cv.parsed_data['initial_analysis_id'] = analysis.id
-        cv.parsed_data['default_analysis'] = False
-        cv.save()
-        message = 'CV uploadé avec une analyse basique (erreur lors de l\'analyse complète)'
-
-    return Response({
-        'message': message,
-        'cv': CVSerializer(cv).data,
-        'analysis': AnalysisResultSerializer(analysis).data
-    }, status=201)
+        logger.error(f"Erreur lors de l'analyse du CV: {str(e)}")
+        return Response({
+            'error': f"Une erreur est survenue lors de l'analyse du CV: {str(e)}"
+        }, status=500)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -535,7 +524,8 @@ def analyze_recruteur_single(request):
         compatibility_score=score,
         matched_keywords=matched,
         missing_keywords=missing,
-        summary=summary
+        summary=summary,
+        analyzed_by=request.user  # Enregistrer l'utilisateur qui effectue l'analyse
     )
 
     return Response({
@@ -730,6 +720,18 @@ def rank_cvs_recruteur(request):
                 # Calcul de la compatibilité
                 score, matched, missing = analyzer.calculate_compatibility(cv.extracted_text, job_text)
                 
+                # Sauvegarder le résultat d'analyse avec l'utilisateur qui l'a effectuée
+                analysis = AnalysisResult.objects.create(
+                    cv=cv,
+                    job_offer_text=job_text,
+                    compatibility_score=score,
+                    matched_keywords=matched,
+                    missing_keywords=missing,
+                    summary=analyzer.summarize_cv(cv.extracted_text),
+                    analyzed_by=request.user
+                )
+                logger.info(f"Analyse enregistrée avec l'ID {analysis.id} pour le CV {cv.id}")
+                
                 # Extraction des informations du candidat
                 # 1. Essayer d'abord le nom extrait du CV
                 name = cv.parsed_data.get('extracted_name', '')
@@ -923,13 +925,23 @@ def send_email_to_candidate(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_analysis_history(request):
-    """Historique des analyses (candidat : seulement les siennes / recruteur : tout)"""
-    if request.user.role == 'candidat':
-        analyses = AnalysisResult.objects.filter(cv__candidat=request.user).select_related('cv').order_by('-created_at')
+    """
+    Historique des analyses de l'utilisateur connecté
+    - Candidat : voit ses propres analyses
+    - Recruteur : voit les analyses qu'il a effectuées
+    """
+    if request.user.role == 'recruteur':
+        # Pour les recruteurs, on montre les analyses qu'ils ont effectuées
+        analyses = AnalysisResult.objects.filter(
+            analyzed_by=request.user
+        ).select_related('cv', 'cv__candidat').order_by('-created_at')
     else:
-        analyses = AnalysisResult.objects.all().select_related('cv').order_by('-created_at')
+        # Pour les candidats, on montre les analyses de leurs propres CVs
+        analyses = AnalysisResult.objects.filter(
+            cv__candidat=request.user
+        ).select_related('cv', 'cv__candidat').order_by('-created_at')
     
-    # Sérialiser les résultats avec les champs nécessaires pour le frontend
+    # Sérializer les résultats avec les champs nécessaires pour le frontend
     results = []
     for analysis in analyses:
         results.append({
@@ -942,9 +954,63 @@ def get_analysis_history(request):
             'matched_skills': analysis.matched_keywords or [],
             'missing_skills': analysis.missing_keywords or [],
             'job_offer_text': analysis.job_offer_text or 'Aucune offre spécifiée',
+            'user_id': analysis.cv.candidat.id if analysis.cv and analysis.cv.candidat else None,
+            'user_name': analysis.cv.candidat.get_full_name() if analysis.cv and analysis.cv.candidat else 'Utilisateur inconnu',
+            'analyzed_by': {
+                'id': analysis.analyzed_by.id if analysis.analyzed_by else None,
+                'name': analysis.analyzed_by.get_full_name() if analysis.analyzed_by else 'Système'
+            } if analysis.analyzed_by else None
         })
     
     return Response(results)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_analysis_history(request, user_id):
+    """
+    Récupère l'historique d'analyse d'un utilisateur spécifique
+    Uniquement accessible par les recruteurs ou administrateurs
+    """
+    # Vérifier si l'utilisateur est un recruteur ou un administrateur
+    if request.user.role != 'recruteur' and not request.user.is_staff:
+        return Response(
+            {'error': 'Accès non autorisé. Seuls les recruteurs peuvent voir les historiques des autres utilisateurs.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        # Vérifier si l'utilisateur cible existe
+        target_user = User.objects.get(id=user_id)
+        
+        # Récupérer les analyses pour l'utilisateur cible
+        analyses = AnalysisResult.objects.filter(
+            cv__candidat=target_user
+        ).select_related('cv').order_by('-created_at')
+        
+        # Sérialiser les résultats
+        results = []
+        for analysis in analyses:
+            results.append({
+                'id': analysis.id,
+                'cv_id': analysis.cv.id if analysis.cv else None,
+                'cv_file_name': analysis.cv.file_name if analysis.cv else 'CV inconnu',
+                'match_score': analysis.compatibility_score,
+                'created_at': analysis.created_at,
+                'summary': analysis.summary or 'Aucun résumé disponible',
+                'matched_skills': analysis.matched_keywords or [],
+                'missing_skills': analysis.missing_keywords or [],
+                'job_offer_text': analysis.job_offer_text or 'Aucune offre spécifiée',
+                'user_id': target_user.id,
+                'user_name': target_user.get_full_name() or target_user.email,
+            })
+        
+        return Response(results)
+        
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Utilisateur non trouvé'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 # ============================================
 # VUE DE TEST

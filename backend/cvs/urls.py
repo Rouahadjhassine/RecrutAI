@@ -48,9 +48,10 @@ urlpatterns = [
     path('recruteur/upload/', views.upload_cvs_recruteur, name='recruteur-upload-multiple'),
     path('recruteur/analyze-single/', views.analyze_recruteur_single, name='recruteur-analyze-single'),
     path('recruteur/rank/', views.rank_cvs_recruteur, name='recruteur-rank'),
+    path('recruteur/analysis/user/<int:user_id>/', views.get_user_analysis_history, name='user-analysis-history'),
     
     # COMMUN
-    path('history/', views.get_analysis_history, name='get-analysis-history'),
+    path('history/', views.get_analysis_history, name='analysis-history'),
     
     # EMAIL
     path('send-email/', views.send_email_to_candidate, name='send-email'),
