@@ -547,6 +547,51 @@ class MLCVAnalyzer:
         
         return category_info + experience_info + skills_info
 
+    def predict_job_category(self, text: str) -> Tuple[str, float]:
+        """
+        Prédit la catégorie d'emploi à partir d'un texte de CV ou d'offre d'emploi
+        
+        Args:
+            text: Texte à analyser (CV ou offre d'emploi)
+            
+        Returns:
+            Tuple[str, float]: (Catégorie d'emploi prédite, Niveau de confiance 0-1)
+        """
+        if not text or not isinstance(text, str):
+            return "Inconnu", 0.0
+            
+        # Liste des catégories possibles (à adapter selon vos besoins)
+        categories = [
+            "Développement", "Réseau et sécurité", "Data Science", 
+            "DevOps", "Design", "Marketing", "Ventes", "Ressources Humaines"
+        ]
+        
+        # Si le modèle ML est disponible, l'utiliser pour la prédiction
+        if hasattr(self, 'ml_matcher') and self.ml_matcher is not None:
+            try:
+                # Utiliser le modèle pour prédire la catégorie
+                category, confidence = self.ml_matcher.predict_category(text)
+                if category:
+                    return str(category), float(confidence)
+            except Exception as e:
+                logger.error(f"Erreur lors de la prédiction de catégorie: {e}")
+                logger.error(f"Type d'erreur: {type(e).__name__}", exc_info=True)
+        
+        # Méthode de repli basée sur des mots-clés avec une confiance plus faible
+        text_lower = text.lower()
+        if any(word in text_lower for word in ["devops", "deploy", "ci/cd", "aws", "azure", "docker", "kubernetes"]):
+            return "DevOps", 0.7
+        elif any(word in text_lower for word in ["data", "machine learning", "ai", "intelligence artificielle"]):
+            return "Data Science", 0.7
+        elif any(word in text_lower for word in ["frontend", "front-end", "react", "angular", "vue", "javascript"]):
+            return "Développement Frontend", 0.7
+        elif any(word in text_lower for word in ["backend", "back-end", "node", "django", "spring", ".net"]):
+            return "Développement Backend", 0.7
+        elif any(word in text_lower for word in ["réseau", "sécurité", "cybersécurité", "admin système"]):
+            return "Réseau et sécurité", 0.7
+            
+        return "Autre", 0.5
+
     def rank_cvs(self, cvs_data: List[Dict], job_description: str) -> List[Dict]:
         """
         Classe plusieurs CVs par rapport à une offre

@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
@@ -30,37 +30,87 @@ def extract_name_and_email_from_text(text: str) -> Tuple[str, str]:
     """
     Extrait le nom et l'email du texte du CV de manière robuste
     """
-    # Nettoyer le texte
-    text = ' '.join(text.split())
+    # Nettoyer le texte en gardant les retours à la ligne pour l'analyse
+    text = text.replace('\r', '\n').replace('\n\n', '\n')
+    clean_text = ' '.join(text.split())
     
-    # 1. Extraction EMAIL (très fiable)
+    # 1. Extraction EMAIL (version améliorée)
     email = ""
+    # Modèle plus précis pour les emails
     email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    email_match = re.search(email_pattern, text)
-    if email_match:
-        email = email_match.group(0)
+    email_matches = re.findall(email_pattern, text)
+    
+    # Liste des domaines de messagerie courants (à compléter selon les besoins)
+    common_domains = [
+        'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'icloud.com',
+        'protonmail.com', 'mail.com', 'zoho.com', 'yandex.com', 'aol.com',
+        'live.com', 'msn.com', 'orange.fr', 'sfr.fr', 'free.fr', 'laposte.net',
+        'wanadoo.fr', 'gmx.fr', 'gmx.com', 'gmx.net', 'gmx.de', 'yahoo.fr',
+        'hotmail.fr', 'outlook.fr', 'live.fr', 'me.com', 'mac.com', 'icloud.com',
+        'gmail.fr', 'yahoo.co.uk', 'hotmail.co.uk', 'outlook.co.uk', 'ymail.com'
+    ]
+    
+    # Filtrer les emails valides
+    valid_emails = []
+    for match in email_matches:
+        domain = match.split('@')[-1].lower()
+        if any(common_domain in domain for common_domain in common_domains):
+            valid_emails.append(match)
+    
+    # Si des emails valides trouvés, prendre le premier
+    if valid_emails:
+        email = valid_emails[0]
+    elif email_matches:  # Si aucun email valide mais des correspondances trouvées
+        # Prendre l'email le plus long (moins susceptible d'être un faux positif)
+        email = max(email_matches, key=len)
     
     # 2. Extraction NOM (plusieurs stratégies)
     name = "Candidat Inconnu"
     
-    # Stratégie 1: Chercher dans les premières lignes
-    lines = text.split('\n')
-    for i, line in enumerate(lines[:10]):  # 10 premières lignes
-        line = line.strip()
-        if len(line) > 0:
-            # Filtrer les lignes qui ressemblent à un nom
+    # Stratégie 1: Chercher dans les premières lignes (format CV standard)
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    
+    # Essayer de trouver un bloc d'informations personnelles en haut du CV
+    for i, line in enumerate(lines[:15]):  # Regarder les 15 premières lignes
+        # Si on trouve un email dans la ligne, c'est probablement la ligne d'info perso
+        if email and email in line:
+            # Essayer d'extraire le nom de la même ligne ou des lignes précédentes
+            if i > 0 and is_likely_name(lines[i-1]):
+                name = lines[i-1]
+                break
+            # Ou essayer d'extraire le nom de la ligne actuelle (en retirant l'email)
+            name_candidate = line.replace(email, '').strip()
+            if is_likely_name(name_candidate):
+                name = name_candidate
+                break
+    
+    # Stratégie 2: Chercher un nom en majuscules ou avec une capitalisation appropriée
+    if name == "Candidat Inconnu":
+        for line in lines[:10]:
             if is_likely_name(line):
                 name = line
                 break
     
-    # Stratégie 2: Si email trouvé, extraire le nom de l'email
+    # Stratégie 3: Si email trouvé, essayer d'extraire le nom de l'email
     if email and name == "Candidat Inconnu":
         name_from_email = email.split('@')[0]
         # Nettoyer le nom de l'email
         name_from_email = re.sub(r'[0-9._+-]+', ' ', name_from_email)
-        name_from_email = ' '.join([word.capitalize() for word in name_from_email.split()])
+        name_parts = []
+        for part in name_from_email.split():
+            # Essayer de capitaliser correctement les noms composés
+            if '-' in part:
+                part = '-'.join([p.capitalize() for p in part.split('-')])
+            else:
+                part = part.capitalize()
+            name_parts.append(part)
+        
+        name_from_email = ' '.join(name_parts)
         if len(name_from_email) > 3:
             name = name_from_email
+    
+    # Nettoyer le nom final
+    name = ' '.join([word.capitalize() for word in re.split(r'\s+', name.strip())])
     
     return name, email
 
@@ -298,7 +348,7 @@ def upload_cvs_recruteur(request):
             # EXTRACTION CORRECTE du nom et email
             name, email = extract_name_and_email_from_text(extracted_text)
             
-            logger.info(f"📄 Fichier {file.name} -> Nom: {name}, Email: {email}")
+            logger.info(f" Fichier {file.name} -> Nom: {name}, Email: {email}")
 
             # Extraction des compétences
             skills = analyzer.extract_skills(extracted_text)
@@ -354,7 +404,7 @@ def upload_cvs_recruteur(request):
             })
 
         except Exception as e:
-            logger.error(f"❌ Erreur upload {file.name}: {str(e)}")
+            logger.error(f" Erreur upload {file.name}: {str(e)}")
             errors.append(f"{file.name}: Erreur de traitement - {str(e)}")
 
     return Response({
