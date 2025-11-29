@@ -51,6 +51,7 @@ urlpatterns = [
     path('recruteur/analysis/user/<int:user_id>/', views.get_user_analysis_history, name='user-analysis-history'),
     
     # COMMUN
+    path('cvs/', views.manage_cv, name='cv-list'),
     path('history/', views.get_analysis_history, name='analysis-history'),
     
     # EMAIL

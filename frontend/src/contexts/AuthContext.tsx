@@ -5,6 +5,7 @@ import { authService } from '../services/authService';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('access_token'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setError(null);
       const { user } = await authService.login({ email, password });
+      setToken(localStorage.getItem('access_token'));
       setUser(user);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Échec de la connexion');
@@ -71,11 +74,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     authService.logout();
     setUser(null);
+    setToken(null);
+    setError(null);
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
+      token,
       loading, 
       error,
       login, 

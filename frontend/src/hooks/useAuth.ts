@@ -34,7 +34,7 @@ export const useAuth = () => {
       await authService.login({ email, password });
       // Forcer une mise à jour de l'état utilisateur avec un délai
       await new Promise(resolve => setTimeout(resolve, 100));
-      const currentUser = await authService.getCurrentUser(true);
+      const currentUser = await authService.getCurrentUser();
       
       // S'assurer que l'utilisateur est bien défini
       if (!currentUser) {

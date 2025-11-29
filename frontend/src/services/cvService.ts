@@ -14,7 +14,7 @@ export const cvService = {
     });
     
     try {
-      const res = await api.post('/api/cvs/candidat/upload/', formData, {
+      const res = await api.post('/cvs/candidat/upload/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Accept': 'application/json',
@@ -48,23 +48,23 @@ export const cvService = {
   },
 
   async getMyCVs(): Promise<{cvs: CV[], max_cvs: number}> {
-    const res = await api.get('/api/cvs/candidat/cvs/');
+    const res = await api.get('/cvs/candidat/cvs/');
     return res.data;
   },
 
   async deleteCV(cvId: number): Promise<void> {
-    await api.delete(`/api/cvs/candidat/cvs/${cvId}/`);
+    await api.delete(`/cvs/candidat/cvs/${cvId}/`);
   },
 
   async getAllCVs(): Promise<CV[]> {
-    const res = await api.get('/api/cvs/all-cvs/');
+    const res = await api.get('/cvs/all-cvs/');
     return res.data;
   },
 
   async analyze(jobText: string, cvId?: number): Promise<AnalysisResult> {
     const payload: any = { job_offer_text: jobText };
     if (cvId) payload.cv_id = cvId;
-    const res = await api.post('/api/cvs/analyze/', payload);
+    const res = await api.post('/cvs/analyze/', payload);
     return res.data;
   },
 
@@ -77,7 +77,7 @@ export const cvService = {
       payload.cv_ids = cvIds;
     }
     
-    const res = await api.post('/api/cvs/recruteur/rank/', payload);
+    const res = await api.post('/cvs/recruteur/rank/', payload);
     return res.data.rankings || [];
   },
 
@@ -88,7 +88,7 @@ export const cvService = {
     });
 
     try {
-      const response = await api.post('/api/cvs/recruteur/upload/', formData, {
+      const response = await api.post('/cvs/recruteur/upload/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -121,7 +121,7 @@ export const cvService = {
         job_offer_text: jobDescription.substring(0, 50) + '...' // Log partiel pour éviter la pollution
       });
       
-      const response = await api.post('/api/cvs/recruteur/rank/', {
+      const response = await api.post('/cvs/recruteur/rank/', {
         cv_ids: uploadedCVs.map(cv => cv.id),
         job_offer_text: jobDescription
       });
@@ -139,7 +139,7 @@ export const cvService = {
   },
 
   async sendEmail(candidateId: number, subject: string, message: string) {
-    await api.post('/api/cvs/send-email/', {
+    await api.post('/cvs/send-email/', {
       candidate_id: candidateId,
       subject,
       message
@@ -147,14 +147,14 @@ export const cvService = {
   },
   
   async analyzeWithJobDescription(cvId: number, jobData: { job_description: string }): Promise<CVAnalysisResult> {
-    const response = await api.post(`/api/cvs/candidat/analyze-job/${cvId}/`, jobData);
+    const response = await api.post(`/cvs/candidat/analyze-job/${cvId}/`, jobData);
     return response.data;
   },
 
   async getHistory(): Promise<any[]> {
     try {
       console.log('Récupération de l\'historique...');
-      const response = await api.get('/api/cvs/history/');
+      const response = await api.get('/cvs/history/');
       console.log('Réponse de l\'API (historique):', response.data);
       
       // Le backend filtre déjà par utilisateur, donc on peut retourner directement les données

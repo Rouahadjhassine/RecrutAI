@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: recrutai_postgres
+    environment:
+      POSTGRES_DB: recrutai_prod
+      POSTGRES_USER: recrutai_user
+      POSTGRES_PASSWORD: 96324486roua
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recrutai_user -d recrutai_prod"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - recrutai_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: recrutai_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - recrutai_network
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: recrutai_backend
+    volumes:
+      - ../backend:/app:delegated
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=recrutai_prod
+      - DB_USER=recrutai_user
+      - DB_PASSWORD=96324486roua
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend,0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - recrutai_network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: recrutai_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app:delegated
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=/api/v1
+    depends_on:
+      - backend
+    networks:
+      - recrutai_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: recrutai_nginx
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./logs/nginx:/var/log/nginx
+      - ../backend/staticfiles:/app/staticfiles
+      - ../backend/media:/app/media
+      - ../frontend/build:/app/frontend/build
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - recrutai_network
+
+networks:
+  recrutai_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
