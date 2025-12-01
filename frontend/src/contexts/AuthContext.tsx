@@ -1,6 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User } from '../types';
+import { User, RegisterFormData } from '../types';
 import { authService } from '../services/authService';
 
 interface AuthContextType {
@@ -9,13 +9,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    role: 'candidat' | 'recruteur';
-  }) => Promise<void>;
+  register: (data: RegisterFormData) => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -60,13 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const clearError = () => setError(null);
 
-  const register = async (data: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    role: 'candidat' | 'recruteur';
-  }) => {
+  const register = async (data: RegisterFormData) => {
     const { user } = await authService.register(data);
     setUser(user);
   };

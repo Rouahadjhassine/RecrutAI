@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { Login } from './components/Auth/Login';
-import { Register } from './components/Auth/Register';
+import Register from './components/Auth/Register';
 import { LoadingSpinner } from './components/Shared/LoadingSpinner';
 import CandidatDashboard from './components/Dashboard/CandidatDashboard';
 import RecruteurDashboard from './components/Dashboard/RecruteurDashboard';
@@ -53,6 +53,13 @@ function App() {
   const { user, loading, logout } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Fonction de déconnexion forcée pour le débogage
+  const forceLogout = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/login';
+  };
+
   useEffect(() => {
     // Marquer l'application comme initialisée après le premier rendu
     const timer = setTimeout(() => {
@@ -70,6 +77,11 @@ function App() {
   // Fonction pour rendre les routes protégées avec l'utilisateur
   const renderProtectedRoutes = (role: 'candidat' | 'recruteur') => {
     if (!user) return <Navigate to="/login" replace />;
+    
+    // Vérifier si l'utilisateur a le bon rôle
+    if (user.role !== role) {
+      return <Navigate to={user.role === 'candidat' ? '/candidat/dashboard' : '/recruteur/dashboard'} replace />;
+    }
     
     if (role === 'candidat') {
       return (
@@ -94,8 +106,31 @@ function App() {
     }
   };
 
+  // Bouton de débogage temporaire - à supprimer en production
+  const showDebugButton = process.env.NODE_ENV === 'development';
+
   return (
-    <Routes>
+    <>
+      {showDebugButton && user && (
+        <button 
+          onClick={forceLogout}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            padding: '10px',
+            backgroundColor: '#ff4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            zIndex: 9999
+          }}
+        >
+          Déconnexion Forcée (Debug)
+        </button>
+      )}
+      <Routes>
       {/* Routes publiques */}
       <Route 
         path="/login" 
@@ -142,7 +177,7 @@ function App() {
         } 
       />
 
-      {/* Redirection par défaut */}
+      {/* Page d'accueil - Redirection vers /login */}
       <Route 
         path="/" 
         element={
@@ -159,6 +194,7 @@ function App() {
       {/* Route 404 */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 

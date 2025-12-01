@@ -19,15 +19,15 @@ export default function Navbar({ user, onLogout, role }: Props) {
         <div className="flex items-center gap-6">
           {role === 'candidat' ? (
             <>
-              <button onClick={() => navigate('/upload')} className="flex items-center gap-2 text-white hover:text-blue-200">
+              <button onClick={() => navigate('/candidat/upload')} className="flex items-center gap-2 text-white hover:text-blue-200">
                 <Upload className="w-5 h-5" /> Upload
               </button>
-              <button onClick={() => navigate('/analyze')} className="flex items-center gap-2 text-white hover:text-blue-200">
+              <button onClick={() => navigate('/candidat/analyze')} className="flex items-center gap-2 text-white hover:text-blue-200">
                 <BarChart3 className="w-5 h-5" /> Analyser
               </button>
             </>
           ) : (
-            <button onClick={() => navigate('rank')} className="flex items-center gap-2 text-white hover:text-purple-200">
+            <button onClick={() => navigate('/recruteur/ranking')} className="flex items-center gap-2 text-white hover:text-purple-200">
               <BarChart3 className="w-5 h-5" /> Classement
             </button>
           )}

@@ -5,6 +5,7 @@ import { UserRole } from '../types';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
+    username: '',
     firstName: '',
     lastName: '',
     email: '',
@@ -33,10 +34,12 @@ const Register: React.FC = () => {
 
     try {
       await register({
+        username: formData.username,
         first_name: formData.firstName,
         last_name: formData.lastName,
         email: formData.email,
         password: formData.password,
+        password2: formData.confirmPassword,
         role,
       });
       // Navigation is handled by the AuthProvider
@@ -93,22 +96,37 @@ const Register: React.FC = () => {
             <div className="rounded-md shadow-sm -space-y-px">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="first-name" className="sr-only">
-                    Prénom
+                  <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                    Nom d'utilisateur
                   </label>
                   <input
-                    id="first-name"
-                    name="firstName"
+                    id="username"
+                    name="username"
                     type="text"
                     required
-                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-tl-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                    placeholder="Prénom"
-                    value={formData.firstName}
+                    value={formData.username}
                     onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="last-name" className="sr-only">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                    Prénom
+                  </label>
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    required
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
                     Nom
                   </label>
                   <input

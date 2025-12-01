@@ -6,7 +6,7 @@ import { authService } from '../../services/authService';
 import { useNavigate } from 'react-router-dom';
 
 interface LoginProps {
-  onLoginSuccess?: (role: 'candidat' | 'recruteur') => void;
+  onLoginSuccess?: (role?: string) => void;
   onShowRegister?: () => void;
 }
 
@@ -20,25 +20,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const user = await login(email, password);
+      const user = await login({ email, password });
       const role = user.role as 'candidat' | 'recruteur';
       
-      // Attendre que l'état soit mis à jour
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Vérifier à nouveau l'état d'authentification
-      const isAuthenticated = authService.isAuthenticated();
-      console.log('Login - isAuthenticated after login:', isAuthenticated);
+      console.log('Login successful, user role:', role);
       
       // Appeler le callback de succès si fourni
+      // La redirection sera gérée par le composant ProtectedRoute
       if (onLoginSuccess) {
-        onLoginSuccess(role);
+        onLoginSuccess();
       }
-      
-      // Forcer un rechargement complet de la page pour s'assurer que tout est bien initialisé
-      const redirectPath = role === 'candidat' ? '/candidat/dashboard' : '/recruteur/dashboard';
-      console.log('Redirecting to:', redirectPath);
-      window.location.href = redirectPath;
     } catch (err) {
       console.error('Échec de la connexion:', err);
       // L'erreur est déjà gérée par le hook useAuth

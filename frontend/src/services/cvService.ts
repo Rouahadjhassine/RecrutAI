@@ -52,8 +52,10 @@ export const cvService = {
     return res.data;
   },
 
-  async deleteCV(cvId: number): Promise<void> {
-    await api.delete(`/cvs/candidat/cvs/${cvId}/`);
+  async deleteCV(analysisId: number): Promise<void> {
+    // Utilisation du bon endpoint pour supprimer une analyse
+    // On utilise une URL relative sans slash initial pour éviter le double slash
+    await api.delete(`cvs/analyses/${analysisId}/`);
   },
 
   async getAllCVs(): Promise<CV[]> {
@@ -151,24 +153,96 @@ export const cvService = {
     return response.data;
   },
 
-  async getHistory(): Promise<any[]> {
+  async getHistory(): Promise<Array<{
+    id: number;
+    cv_file_name: string;
+    created_at: string;
+    match_score: number;
+    summary: string;
+    user: number;
+    [key: string]: any;
+  }>> {
     try {
-      console.log('Récupération de l\'historique...');
-      const response = await api.get('/cvs/candidat/history/');
-      console.log('Réponse de l\'API (historique):', response.data);
+      console.log('Début de la récupération de l\'historique...');
       
-      // Le backend filtre déjà par utilisateur, donc on peut retourner directement les données
-      return Array.isArray(response.data) ? response.data : [];
+      // Le préfixe /api/v1/ est déjà ajouté par la configuration de base de l'API
+      const url = '/cvs/history/';
+      console.log('Appel API vers:', url);
+      
+      const response = await api.get(url);
+      
+      // Validation des données reçues
+      if (!Array.isArray(response.data)) {
+        console.warn('La réponse de l\'API n\'est pas un tableau:', response.data);
+        return [];
+      }
+      
+      // Nettoyage et validation des données
+      const validData = response.data
+        .filter(item => item && typeof item === 'object' && 'id' in item) // Filtre les entrées invalides
+        .map(item => ({
+          ...item,
+          // Assure que les champs obligatoires ont des valeurs par défaut
+          id: Number(item.id) || 0,
+          cv_file_name: item.cv_file_name || 'Sans nom',
+          created_at: item.created_at || new Date().toISOString(),
+          match_score: typeof item.match_score === 'number' ? Math.max(0, Math.min(100, item.match_score)) : 0,
+          summary: item.summary || '',
+          user: Number(item.user) || 0
+        }))
+        .filter(item => item.id > 0); // Supprime les entrées avec ID invalide
+      
+      // Détection des doublons
+      const uniqueIds = new Set();
+      const duplicates = validData.filter(item => {
+        if (uniqueIds.has(item.id)) return true;
+        uniqueIds.add(item.id);
+        return false;
+      });
+      
+      if (duplicates.length > 0) {
+        console.warn(`Attention: ${duplicates.length} doublons détectés dans les données d'historique`, duplicates);
+      }
+      
+      // Suppression des doublons en gardant la version la plus récente
+      const uniqueData = Object.values(
+        validData.reduce((acc, item) => {
+          const existing = acc[item.id];
+          if (!existing || new Date(item.created_at) > new Date(existing.created_at)) {
+            acc[item.id] = item;
+          }
+          return acc;
+        }, {} as Record<number, typeof validData[0]>)
+      ) as Array<typeof validData[0]>;
+      
+      // Tri par date décroissante
+      uniqueData.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      console.log(`Données traitées: ${uniqueData.length} analyses uniques (${duplicates.length} doublons supprimés)`);
+      
+      return uniqueData;
       
     } catch (error: any) {
-      console.error('Erreur lors de la récupération de l\'historique:', {
+      const errorDetails = {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
         message: error.message,
-        config: error.config
-      });
-      throw new Error('Impossible de récupérer l\'historique des analyses. Veuillez réessayer plus tard.');
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers
+      };
+      
+      console.error('Erreur lors de la récupération de l\'historique:', errorDetails);
+      
+      // Message d'erreur plus détaillé
+      const errorMessage = error.response?.data?.error || 
+                         error.response?.data?.message || 
+                         'Impossible de récupérer l\'historique des analyses. Veuillez réessayer plus tard.';
+      
+      throw new Error(`Erreur: ${errorMessage} (${error.response?.status || 'Pas de réponse'})`);
     }
   }
 };

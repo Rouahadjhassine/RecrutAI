@@ -1,5 +1,5 @@
 # Étape de construction
-FROM node:16-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -23,8 +23,7 @@ FROM nginx:alpine
 # Copier les fichiers de construction depuis l'étape de construction
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Copier la configuration Nginx personnalisée
-COPY nginx-config/recruitment.conf /etc/nginx/conf.d/default.conf
+# La configuration Nginx est gérée par le service nginx séparé
 
 # Créer les dossiers nécessaires
 RUN mkdir -p /app/staticfiles /app/media

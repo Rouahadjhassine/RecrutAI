@@ -1,89 +1,173 @@
 // src/hooks/useAuth.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
-import { User } from '../types';
+import { User, LoginFormData, RegisterFormData } from '../types';
+
+type ApiError = {
+  username?: string[];
+  email?: string[];
+  password?: string[];
+  non_field_errors?: string[];
+  detail?: string;
+  [key: string]: any;
+};
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [authErrors, setAuthErrors] = useState<Record<string, string>>({});
+  const navigate = useNavigate();
 
+  // Charger l'utilisateur au démarrage
   useEffect(() => {
     const loadUser = async () => {
       try {
-        if (authService.isAuthenticated()) {
-          const userData = await authService.getCurrentUser();
-          setUser(userData);
+        setLoading(true);
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          console.log('Utilisateur chargé depuis le stockage local:', currentUser);
+          setUser(currentUser);
+        } else {
+          console.log('Aucun utilisateur connecté trouvé');
         }
       } catch (err) {
-        console.error('Failed to load user', err);
-        authService.logout();
+        console.error('Erreur lors du chargement de l\'utilisateur:', err);
+        setError('Impossible de charger les informations de l\'utilisateur');
       } finally {
         setLoading(false);
       }
     };
 
     loadUser();
+
+    // Écouter les changements d'état d'authentification
+    const unsubscribe = authService.onAuthStateChanged((updatedUser) => {
+      console.log('Changement d\'état d\'authentification détecté:', updatedUser);
+      setUser(updatedUser);
+      setLoading(false);
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
-  const login = async (email: string, password: string) => {
-    setError(null);
-    setLoading(true);
+  const login = useCallback(async (credentials: LoginFormData) => {
     try {
-      // On ne stocke pas le user de la réponse car on va le récupérer avec getCurrentUser
-      await authService.login({ email, password });
-      // Forcer une mise à jour de l'état utilisateur avec un délai
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const currentUser = await authService.getCurrentUser();
+      setError(null);
+      setAuthErrors({});
+      console.log('Tentative de connexion avec les identifiants:', {
+        ...credentials,
+        password: '***'
+      });
       
-      // S'assurer que l'utilisateur est bien défini
-      if (!currentUser) {
-        throw new Error('Impossible de récupérer les informations utilisateur');
-      }
-      
-      // Mettre à jour l'état utilisateur
-      setUser(currentUser);
-      
-      return currentUser;
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Échec de la connexion';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (userData: any) => {
-    setError(null);
-    setLoading(true);
-    try {
-      const { user } = await authService.register(userData);
+      const { user } = await authService.login(credentials);
+      console.log('Connexion réussie, utilisateur:', user);
       setUser(user);
       return user;
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Échec de l\'inscription';
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
+      console.error('Erreur de connexion:', {
+        message: err.message,
+        response: err.response?.data,
+      });
+      
+      // Gestion des erreurs spécifiques
+      const errorMessage = err.response?.data?.detail || 
+                         err.response?.data?.error ||
+                         err.message || 
+                         'Échec de la connexion. Veuillez réessayer.';
+      
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const register = useCallback(async (userData: RegisterFormData) => {
+    try {
+      setError(null);
+      setAuthErrors({});
+      console.log('Tentative d\'inscription avec les données:', {
+        ...userData,
+        password: '***',
+        password2: '***'
+      });
+      
+      const { user } = await authService.register(userData);
+      console.log('Inscription réussie, utilisateur:', user);
+      setUser(user);
+      return user;
+    } catch (err: any) {
+      console.error('Erreur d\'inscription:', {
+        message: err.message,
+        response: err.response?.data,
+      });
+      
+      // Réinitialiser les erreurs précédentes
+      const newErrors: Record<string, string> = {};
+      
+      // Si c'est une erreur de validation (400)
+      if (err.response?.status === 400) {
+        const errorData: ApiError = err.response.data;
+        
+        // Extraire les messages d'erreur du backend
+        Object.keys(errorData).forEach((key) => {
+          if (Array.isArray(errorData[key])) {
+            newErrors[key] = errorData[key]?.join(' ') || '';
+          } else if (typeof errorData[key] === 'string') {
+            newErrors[key] = errorData[key] as string;
+          }
+        });
+        
+        // Si nous n'avons pas de champs spécifiques, utiliser le message d'erreur général
+        if (Object.keys(newErrors).length === 0 && errorData.detail) {
+          setError(errorData.detail);
+        } else {
+          setAuthErrors(newErrors);
+        }
+      } 
+      // Erreur réseau
+      else if (err.message === 'Network Error') {
+        setError('Impossible de se connecter au serveur. Vérifiez votre connexion Internet.');
+      }
+      // Erreur serveur
+      else if (err.response?.status >= 500) {
+        setError('Une erreur est survenue sur le serveur. Veuillez réessayer plus tard.');
+      }
+      // Autres erreurs
+      else {
+        const errorMessage = err.response?.data?.detail || 
+                           err.response?.data?.error ||
+                           err.message || 
+                           'Échec de l\'inscription. Veuillez réessayer.';
+        setError(errorMessage);
+      }
+      
+      // Propager l'erreur pour permettre une gestion supplémentaire dans le composant
+      throw err;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    console.log('Déconnexion de l\'utilisateur');
     authService.logout();
     setUser(null);
-  };
+    setError(null);
+    setAuthErrors({});
+    navigate('/login');
+  }, [navigate]);
 
-  const clearError = () => setError(null);
-
-  return { 
-    user, 
-    loading, 
-    error, 
-    login, 
-    logout, 
+  return {
+    user,
+    loading,
+    error,
+    authErrors,
+    login,
     register,
-    clearError 
+    logout,
+    setError,
   };
 };

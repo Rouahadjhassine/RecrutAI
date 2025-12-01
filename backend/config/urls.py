@@ -9,18 +9,12 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
-# Import the API root view
-from .api import api_root
-
 def health_check(request):
     """Health check endpoint"""
     return JsonResponse({'status': 'healthy', 'service': 'backend'})
 
 # API URL patterns
 api_patterns = [
-    # API root
-    path('', api_root, name='api-root'),
-    
     # Authentication
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

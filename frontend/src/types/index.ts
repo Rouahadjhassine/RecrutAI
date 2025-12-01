@@ -98,11 +98,13 @@ export interface LoginFormData {
 }
 
 export interface RegisterFormData {
-  email: string;
-  password: string;
-  first_name: string;
-  last_name: string;
-  role: UserRole;
+  username: string;        // Nom d'utilisateur requis
+  email: string;           // Email de l'utilisateur
+  password: string;        // Mot de passe
+  password2: string;       // Confirmation du mot de passe
+  first_name: string;      // Prénom
+  last_name: string;       // Nom de famille
+  role: UserRole;          // Rôle (candidat ou recruteur)
 }
 
 export interface EmailData {

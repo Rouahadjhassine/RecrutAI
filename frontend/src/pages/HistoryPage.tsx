@@ -36,8 +36,52 @@ export default function HistoryPage({ user }: { user: User | null }) {
       setLoading(true);
       setError(null);
       const historyData = await cvService.getHistory();
-      console.log('Données reçues:', historyData);
-      setHistory(historyData);
+      
+      // Log détaillé des données reçues
+      console.group('Données d\'historique reçues :');
+      console.log('Type de données:', Array.isArray(historyData) ? 'Tableau' : typeof historyData);
+      console.log('Nombre d\'entrées:', Array.isArray(historyData) ? historyData.length : 'N/A');
+      if (Array.isArray(historyData)) {
+        console.log('Exemple d\'entrée:', historyData[0]);
+        // Vérifier les doublons d'ID
+        const ids = historyData.map(item => item.id);
+        const uniqueIds = Array.from(new Set(ids));
+      }
+      console.groupEnd();
+      
+      // Vérifier si les données sont valides
+      if (!Array.isArray(historyData)) {
+        console.warn('Les données reçues ne sont pas un tableau:', historyData);
+        setHistory([]);
+        return;
+      }
+
+      // Créer un objet pour stocker les analyses uniques par ID
+      const uniqueAnalyses = new Map<number, AnalysisItem>();
+      
+      // Parcourir toutes les analyses et garder la plus récente pour chaque ID
+      historyData.forEach(analysis => {
+        if (!analysis || typeof analysis !== 'object') return;
+        
+        const existing = uniqueAnalyses.get(analysis.id);
+        
+        // Si l'analyse n'existe pas encore ou si la date est plus récente
+        if (!existing || 
+            (analysis.created_at && 
+             (!existing.created_at || new Date(analysis.created_at) > new Date(existing.created_at)))) {
+          uniqueAnalyses.set(analysis.id, analysis);
+        }
+      });
+      
+      // Convertir la Map en tableau et trier par date décroissante
+      const sortedHistory = Array.from(uniqueAnalyses.values()).sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      console.log('Données après filtrage des doublons et tri:', sortedHistory);
+      setHistory(sortedHistory);
     } catch (err) {
       console.error('Erreur lors du chargement de l\'historique:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue lors du chargement de l\'historique';
