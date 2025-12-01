@@ -57,7 +57,7 @@ export const cvService = {
   },
 
   async getAllCVs(): Promise<CV[]> {
-    const res = await api.get('/cvs/all-cvs/');
+    const res = await api.get('/cvs/recruteur/cvs/');
     return res.data;
   },
 
@@ -154,7 +154,7 @@ export const cvService = {
   async getHistory(): Promise<any[]> {
     try {
       console.log('Récupération de l\'historique...');
-      const response = await api.get('/cvs/history/');
+      const response = await api.get('/cvs/candidat/history/');
       console.log('Réponse de l\'API (historique):', response.data);
       
       // Le backend filtre déjà par utilisateur, donc on peut retourner directement les données

@@ -44,11 +44,11 @@ export default function RecruteurAnalysisPage({ user }: { user: User }) {
     files.forEach(file => formData.append('files', file));
 
     try {
-      const res = await api.post('/api/cvs/recruteur/upload/', formData, {
+      const response = await api.post('/cvs/recruteur/upload-multiple/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setUploadedCVs(res.data.uploaded_cvs);
-      alert(`${res.data.uploaded_cvs.length} CV(s) uploadé(s)`);
+      setUploadedCVs(response.data.uploaded_cvs);
+      alert(`${response.data.uploaded_cvs.length} CV(s) uploadé(s)`);
       setFiles([]);
     } catch (err) {
       alert('Erreur lors de l\'upload');
@@ -63,11 +63,11 @@ export default function RecruteurAnalysisPage({ user }: { user: User }) {
     
     setLoading(true);
     try {
-      const res = await api.post('/api/cvs/recruteur/analyze-single/', {
+      const response = await api.post('/cvs/analyze-multiple/', {
         cv_id: selectedCVId,
         job_offer_text: jobText
       });
-      setSingleResult(res.data);
+      setSingleResult(response.data);
     } catch (err) {
       alert('Erreur d\'analyse');
     } finally {
@@ -81,7 +81,7 @@ export default function RecruteurAnalysisPage({ user }: { user: User }) {
     
     setLoading(true);
     try {
-      const res = await api.post('/api/cvs/recruteur/rank/', {
+      const res = await api.post('/cvs/recruteur/rank/', {
         job_offer_text: jobText
       });
       setRankings(res.data.rankings);
@@ -98,7 +98,7 @@ export default function RecruteurAnalysisPage({ user }: { user: User }) {
     const message = `Bonjour ${name},\n\nVotre profil a obtenu un score de ${score}% pour notre offre.\n\nCordialement,\nL'équipe RecrutAI`;
     
     try {
-      await api.post('/api/cvs/send-email/', {
+      await api.post('/cvs/send-email/', {
         candidate_id: candidateId,
         subject,
         message

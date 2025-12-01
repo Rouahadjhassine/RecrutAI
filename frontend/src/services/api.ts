@@ -1,16 +1,17 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Use environment variable or default to development server
-// Use environment variable or default to development server
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+// URL du backend - utilise REACT_APP_API_URL s'il est défini, sinon utilise la logique par défaut
+const API_BASE_URL = process.env.REACT_APP_API_URL || 
+  (window.location.hostname === 'localhost' 
+    ? 'http://localhost:8000/api/v1' 
+    : `${window.location.origin}/api/v1`);
 
-// Remove trailing slash if present to avoid double slashes
-const normalizedApiBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-
-console.log('API baseURL:', normalizedApiBaseUrl);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('API baseURL:', API_BASE_URL);
+console.log('Current hostname:', window.location.hostname);
 
 const api = axios.create({
-  baseURL: normalizedApiBaseUrl,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -49,7 +50,7 @@ api.interceptors.response.use(
 
         console.log('Attempting to refresh token...');
 
-        const response = await axios.post(`${API_BASE_URL}/api/auth/token/refresh/`, {
+        const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
           refresh: refreshToken,
         });
 

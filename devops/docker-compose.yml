@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -71,13 +73,13 @@ services:
       dockerfile: Dockerfile
     container_name: recrutai_frontend
     ports:
-      - "3000:3000"
+      - "8080:8080"
     volumes:
-      - ../frontend:/app:delegated
+      - ../frontend:/app
       - /app/node_modules
     environment:
-      - NODE_ENV=development
-      - REACT_APP_API_URL=/api/v1
+      - NODE_ENV=production
+      - REACT_APP_API_URL=/api
     depends_on:
       - backend
     networks:
@@ -86,15 +88,13 @@ services:
   nginx:
     image: nginx:alpine
     container_name: recrutai_nginx
-    restart: always
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./logs/nginx:/var/log/nginx
+      - ./nginx/sites-available/recruitment.conf:/etc/nginx/conf.d/default.conf
+      - ../frontend/build:/usr/share/nginx/html
       - ../backend/staticfiles:/app/staticfiles
       - ../backend/media:/app/media
-      - ../frontend/build:/app/frontend/build
     depends_on:
       - frontend
       - backend

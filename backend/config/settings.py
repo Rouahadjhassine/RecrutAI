@@ -83,15 +83,18 @@ DATABASES = {
 }
 
 # CORS settings
+CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement uniquement
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
 ]
 
-# En-têtes autorisés
+# Configuration pour les en-têtes et méthodes autorisés
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -157,10 +160,19 @@ os.makedirs(MEDIA_ROOT, exist_ok=True)
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# CORS Configuration
+CORS_ALLOW_ALL_ORIGINS = True  # En développement uniquement
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:8000',
+    'http://localhost:8080',
+]
+
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS',
-    'http://localhost,http://localhost:3000'
+    'http://localhost,http://localhost:3000,http://localhost:8000,http://localhost:8080'
 ).split(',')
 
 # JWT Settings

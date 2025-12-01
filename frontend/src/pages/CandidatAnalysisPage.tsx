@@ -30,7 +30,7 @@ export default function CandidatAnalysisPage({ user }: { user: User }) {
     formData.append('file', file);
 
     try {
-      const res = await api.post('/api/cvs/candidat/upload/', formData, {
+      const res = await api.post('/cvs/candidat/upload/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setCvUploaded(true);
@@ -49,7 +49,7 @@ export default function CandidatAnalysisPage({ user }: { user: User }) {
 
     setLoading(true);
     try {
-      const res = await api.post('/api/cvs/candidat/analyze/', {
+      const res = await api.post('/cvs/candidat/analyze/', {
         job_offer_text: jobText
       });
       setResult(res.data);

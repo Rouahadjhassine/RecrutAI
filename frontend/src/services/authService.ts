@@ -24,10 +24,12 @@ class AuthService {
   /* -------------------------------- REGISTER --------------------------------- */
   async register(userData: RegisterFormData): Promise<{ user: User }> {
     try {
+      console.log('Sending registration data:', userData); // Debug log
       const response = await api.post('/auth/register/', userData);
       const { access, refresh, user } = response.data;
       this._saveTokens(access, refresh);
       this._saveUser(user);
+      this.notifyAuthStateChanged();
       return { user };
     } catch (error: any) {
       console.error('Registration error:', error.response?.data || error);

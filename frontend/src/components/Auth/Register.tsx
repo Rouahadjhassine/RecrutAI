@@ -12,8 +12,8 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
   const [role, setRole] = useState<'candidat' | 'recruteur'>('candidat');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [first_name, setFirstName] = useState('');
+  const [last_name, setLastName] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { register, loading, error } = useAuth();
   const navigate = useNavigate();
@@ -25,8 +25,8 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
     
     const errors: Record<string, string> = {};
     
-    if (!firstName.trim()) errors.firstName = 'Le prénom est requis';
-    if (!lastName.trim()) errors.lastName = 'Le nom est requis';
+    if (!first_name.trim()) errors.first_name = 'Le prénom est requis';
+    if (!last_name.trim()) errors.last_name = 'Le nom est requis';
     if (!email.trim()) {
       errors.email = 'L\'email est requis';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
@@ -48,8 +48,8 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
         email,
         password,
         role,
-        first_name: firstName,
-        last_name: lastName
+        first_name,
+        last_name
       });
       
       onRegisterSuccess(role);
@@ -101,16 +101,16 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
               <input
                 type="text"
-                value={firstName}
+                value={first_name}
                 onChange={(e) => {
                   setFirstName(e.target.value);
-                  if (formErrors.firstName) setFormErrors({...formErrors, firstName: ''});
+                  if (formErrors.first_name) setFormErrors({...formErrors, first_name: ''});
                 }}
-                className={`w-full px-4 py-2 border ${formErrors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
+                className={`w-full px-4 py-2 border ${formErrors.first_name ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
                 placeholder="Votre prénom"
               />
-              {formErrors.firstName && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.firstName}</p>
+              {formErrors.first_name && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.first_name}</p>
               )}
             </div>
 
@@ -118,16 +118,16 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
               <input
                 type="text"
-                value={lastName}
+                value={last_name}
                 onChange={(e) => {
                   setLastName(e.target.value);
-                  if (formErrors.lastName) setFormErrors({...formErrors, lastName: ''});
+                  if (formErrors.last_name) setFormErrors({...formErrors, last_name: ''});
                 }}
-                className={`w-full px-4 py-2 border ${formErrors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
+                className={`w-full px-4 py-2 border ${formErrors.last_name ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 outline-none`}
                 placeholder="Votre nom"
               />
-              {formErrors.lastName && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.lastName}</p>
+              {formErrors.last_name && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.last_name}</p>
               )}
             </div>
 
