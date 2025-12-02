@@ -235,7 +235,7 @@ def analyze_job_with_cv(request, cv_id):
                 compatibility_score=analysis_result.get('match_score', 0),
                 matched_keywords=analysis_result.get('matched_skills', []),
                 missing_keywords=analysis_result.get('missing_skills', []),
-                summary=analysis_result.get('summary', ''),
+                summary=analysis_result.get('analysis_summary', ''),
                 analyzed_by=request.user if request.user.is_authenticated else None
             )
             logger.info(f'Résultat d\'analyse enregistré avec l\'ID: {result.id}')
@@ -249,7 +249,7 @@ def analyze_job_with_cv(request, cv_id):
             'match_score': analysis_result.get('match_score', 0),
             'matching_skills': analysis_result.get('matched_skills', []),
             'missing_skills': analysis_result.get('missing_skills', []),
-            'summary': analysis_result.get('summary', ''),
+            'summary': analysis_result.get('analysis_summary', ''),
             'advice': analysis_result.get('advice', ''),
             'created_at': timezone.now().isoformat(),
             'cv_file_name': cv.file_name,

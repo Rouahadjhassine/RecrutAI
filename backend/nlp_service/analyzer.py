@@ -154,20 +154,60 @@ class MLCVAnalyzer:
 
     def _is_valid_skill(self, skill: str) -> bool:
         """Vérifie si une compétence est valide"""
-        if not skill or len(skill) < 2:
+        if not skill or len(skill) < 2 or len(skill) > 50:
             return False
         
+        # Mots non pertinents à exclure
         excluded_words = {
+            # Mots généraux
             'and', 'or', 'the', 'a', 'an', 'with', 'using', 'knowledge', 'experience',
-            'good', 'strong', 'excellent', 'basic', 'advanced'
+            'good', 'strong', 'excellent', 'basic', 'advanced', 'level', 'years', 'year',
+            'skills', 'skill', 'proficient', 'familiar', 'knowledgeable', 'working',
+            'knowledge', 'experience', 'experienced', 'inter', 'digital', 'retour',
+            'résultats', 'analyse', 'score', 'correspondance', 'votre', 'cv', 'offre',
+            'compétences', 'améliorer', 'résumé', 'profil', 'développement', 'logiciel',
+            'ans', 'expérience', 'professionnelle', 'clés', 'confiance', 'analyse',
+            'travail', 'équipe', 'autonome', 'capacité', 'dynamique', 'motivé',
+            'rigoureux', 'créatif', 'force', 'proposition', 'relation', 'client',
+            'esprit', 'synthèse', 'curiosité', 'méthode', 'anglais', 'français',
+            'lu', 'écrit', 'parlé', 'niveau', 'intermédiaire', 'avancé', 'débutant',
+            'expert', 'maîtrise', 'notions', 'connaissance', 'connaissances'
         }
         
-        if skill in excluded_words:
+        # Vérifier si le mot est dans la liste noire
+        if skill.lower() in excluded_words:
             return False
-        
-        if len(skill) > 50:
+            
+        # Exclure les mots trop courts (moins de 3 caractères) sauf acronymes connus
+        if len(skill) < 3 and not skill.isupper():
             return False
+            
+        # Exclure les mots qui sont des nombres seuls
+        if skill.replace('.', '').isdigit():
+            return False
+            
+        # Exclure les mots qui ne contiennent que des lettres et sont trop courts
+        if skill.isalpha() and len(skill) < 4 and not skill.isupper():
+            return False
+            
+        # Exclure les mots qui contiennent des chiffres mais pas de lettres
+        if any(c.isdigit() for c in skill) and not any(c.isalpha() for c in skill):
+            return False
+            
+        # Liste des préfixes/suffixes à exclure
+        invalid_prefixes_suffixes = {
+            'de ', 'des ', 'du ', 'le ', 'la ', 'les ', 'un ', 'une ', 'au ', 'aux ',
+            'en ', 'pour ', 'par ', 'dans ', 'sur ', 'avec ', 'sans ', 'sous ', 'vers ',
+            'depuis ', 'jusqu\'au ', 'jusqu\'à ', 'dès ', 'chez ', 'contre ', 'd\'',
+            'l\''
+        }
         
+        # Vérifier les préfixes/suffixes invalides
+        skill_lower = skill.lower()
+        for prefix in invalid_prefixes_suffixes:
+            if skill_lower.startswith(prefix) or skill_lower.endswith(prefix.strip()):
+                return False
+                
         return True
 
     def extract_text_from_pdf(self, pdf_file) -> str:
@@ -308,33 +348,149 @@ class MLCVAnalyzer:
         return skills_found
 
     def extract_experience_years(self, text: str) -> int:
-        """Extrait les années d'expérience"""
+        """
+        Extrait les années d'expérience à partir du texte du CV avec une détection avancée.
+        Prend en compte les formats variés et les plages de dates.
+        """
         if not text:
             return 0
             
         text_lower = text.lower()
         
-        patterns = [
-            r'(\d+)\s*(?:ans?|années?)\s+(?:d\'?expérience|d\'?exp)',
-            r'expérience\s*[\-:]\s*(\d+)\s*(?:ans?|années?)',
-            r'(\d+)\s*(?:years?|ans?|années?)(?:\s+d\'expérience|\s+expérience|\s+of\s+experience)?',
-            r'expérience\s*:\s*(\d+\+?)\s*(?:ans?|années?)',
+        # 1. Détection des motifs directs d'expérience
+        experience_patterns = [
+            # Format: "X ans d'expérience" (avec variantes)
+            r'(\d+\+?)\s*(?:ans?|années?|years?)(?:\s+d[\'\s]?expérience|\s+expérience|\s+of\s+experience)?',
+            # Format: "Expérience: X ans"
+            r'expérience\s*[\-:]\s*(\d+\+?)\s*(?:ans?|années?|years?)',
+            # Format: "Plus de X ans d'expérience"
+            r'(?:plus\s+de|plus\s+d[\'\s]|>)\s*(\d+)\s*(?:ans?|années?|years?)',
+            # Format: "Expérience professionnelle: X ans"
+            r'expérience\s+(?:professionnelle|professionnel|en entreprise)?\s*[\-:]?\s*(\d+\+?)\s*(?:ans?|années?|years?)',
+            # Format: "X années d'expérience dans le domaine"
+            r'(\d+)\s*(?:ans?|années?|years?)\s*(?:d[\'\s]?expérience|d[\'\s]?exp)',
+            # Format: "X ans dans le développement"
+            r'(\d+)\s*(?:ans?|années?|years?)(?:\s+de\s+\w+)?\s+dans',
+            # Format: "X ans en tant que développeur"
+            r'(\d+)\s*(?:ans?|années?|years?)\s+(?:en\s+)?(?:tant que\s+)?\w+',
+            # Format: "Expérience totale: X ans"
+            r'expérience\s+(?:totale|cumulée|globale)\s*[\-:]?\s*(\d+\+?)\s*(?:ans?|années?|years?)',
+            # Format: "X+ années d'expérience pertinente"
+            r'(\d+\+?)\s*(?:ans?|années?|years?)\s+d[\'\s]?expérience\s+(?:pertinente|professionnelle|en entreprise)',
+            # Format: "J'ai X ans d'expérience"
+            r'(?:je\s+suis|j[\'\s]ai)\s+\w*\s*(?:depuis|pendant|avec)\s*(\d+)\s*(?:ans?|années?|years?)'
         ]
         
         years_found = []
         
-        for pattern in patterns:
-            matches = re.findall(pattern, text_lower, re.IGNORECASE)
-            for match in matches:
-                if isinstance(match, tuple):
-                    match = match[0]  # Prendre le premier groupe capturé
-                try:
-                    years = int(''.join(filter(str.isdigit, str(match))))
-                    years_found.append(years)
-                except (ValueError, TypeError):
-                    continue
+        # 2. Recherche des motifs directs d'expérience
+        for pattern in experience_patterns:
+            try:
+                matches = re.finditer(pattern, text_lower)
+                for match in matches:
+                    years_str = match.group(1) if match.groups() else match.group(0)
+                    if years_str:
+                        try:
+                            years = int(''.join(filter(str.isdigit, str(years_str))))
+                            if 0 < years < 50:  # Vérification de la plage raisonnable
+                                years_found.append(years)
+                                # Si c'est une plage (ex: 3-5 ans), on prend la borne supérieure
+                                if '-' in years_str:
+                                    parts = years_str.split('-')
+                                    if len(parts) == 2 and parts[1].isdigit():
+                                        years_found.append(int(parts[1]))
+                        except (ValueError, TypeError):
+                            continue
+            except Exception as e:
+                logger.warning(f"Erreur avec le motif {pattern}: {e}")
+                continue
         
-        return max(years_found) if years_found else 0
+        # 3. Si aucune année trouvée, chercher des plages de dates d'emploi
+        if not years_found:
+            # Format des dates: Mois Année - Mois Année
+            date_range_patterns = [
+                r'(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|\d{1,2})[\s\-/,]+(20\d{2})\s*[\-–]\s*(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|\d{1,2})?[\s\-/,]+(20\d{2}|(?:présent|now|actuel|current))',
+                r'(\d{1,2}[/-]\d{4})\s*[\-–]\s*(\d{1,2}[/-]\d{4}|(?:présent|now|actuel|current))',
+                r'(20\d{2})\s*[\-–]\s*(20\d{2}|(?:présent|now|actuel|current))',
+                r'(?:depuis|from)\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|\d{1,2})[\s\-/,]+(20\d{2})',
+                r'(?:since|depuis)\s+(20\d{2})',
+                r'(20\d{2})\s*[\-–]\s*(?:présent|now|actuel|current)'
+            ]
+            
+            # Extraire toutes les plages de dates
+            date_ranges = []
+            for pattern in date_range_patterns:
+                try:
+                    for match in re.finditer(pattern, text_lower):
+                        groups = match.groups()
+                        if groups:
+                            start_year = None
+                            end_year = None
+                            
+                            # Extraire l'année de début
+                            if groups[0]:
+                                year_match = re.search(r'(20\d{2})', groups[0])
+                                if year_match:
+                                    start_year = int(year_match.group(1))
+                            
+                            # Extraire l'année de fin (peut être "présent" ou une année)
+                            if len(groups) > 1 and groups[1]:
+                                if groups[1].lower() in ['présent', 'now', 'actuel', 'current']:
+                                    end_year = datetime.now().year
+                                else:
+                                    year_match = re.search(r'(20\d{2})', groups[1])
+                                    if year_match:
+                                        end_year = int(year_match.group(1))
+                            
+                            if start_year and end_year and 2000 <= start_year <= end_year <= 2100:
+                                date_ranges.append((start_year, end_year))
+                except Exception as e:
+                    logger.warning(f"Erreur avec le motif de date {pattern}: {e}")
+                    continue
+            
+            # Calculer l'expérience totale à partir des plages de dates
+            if date_ranges:
+                # Trier par année de début
+                date_ranges.sort()
+                
+                # Fusionner les plages qui se chevauchent
+                merged_ranges = []
+                for start, end in date_ranges:
+                    if not merged_ranges:
+                        merged_ranges.append([start, end])
+                    else:
+                        last_start, last_end = merged_ranges[-1]
+                        if start <= last_end + 1:  # +1 pour gérer les chevauchements d'un an
+                            merged_ranges[-1] = [last_start, max(last_end, end)]
+                        else:
+                            merged_ranges.append([start, end])
+                
+                # Calculer la durée totale d'expérience
+                total_years = 0
+                for start, end in merged_ranges:
+                    total_years += end - start + 1  # +1 car on compte l'année de début
+                
+                if total_years > 0:
+                    years_found.append(total_years)
+        
+        # 4. Si on a trouvé des années d'expérience, retourner la plus élevée
+        if years_found:
+            return min(max(years_found), 30)  # Limiter à 30 ans maximum pour éviter les valeurs aberrantes
+            
+        # 5. Dernier recours : chercher des mentions d'expérience sans nombre spécifique
+        experience_indicators = [
+            r'expérience\s+(?:professionnelle|en entreprise|dans le domaine)',
+            r'expérience\s+de\s+plusieurs\s+années',
+            r'expérience\s+significative',
+            r'\b(?:expérience|expérimenté|expérimentée|expérimentés|expérimentées)\b',
+            r'\b(senior|expérimenté|expérimentée|expérimentés|expérimentées|expert|expérimenter|expérimentant|expérimenta|expérimentai|expérimenterai|expérimenterais|expérimenterais|expérimenterait|expérimenterions|expérimenteriez|expérimenteraient|expérimentassions|expérimentassiez|expérimentassent|expérimentant|expérimenté|expérimentée|expérimentés|expérimentées|expérimenter|expérimentons|expérimentez|expérimentent|expérimenterai|expérimenteras|expérimentera|expérimenterons|expérimenterez|expérimenteront|expérimenterais|expérimenterait|expérimenterions|expérimenteriez|expérimenteraient|expérimente|expérimentes|expérimentent|expérimentions|expérimentiez|expérimentaient|expérimentasse|expérimentasses|expérimentât|expérimentassions|expérimentassiez|expérimentassent|expérimentant|expérimenté|expérimentée|expérimentés|expérimentées|expérimenter|expérimentons|expérimentez|expérimentent|expérimenterai|expérimenteras|expérimentera|expérimenterons|expérimenterez|expérimenteront|expérimenterais|expérimenterait|expérimenterions|expérimenteriez|expérimenteraient|expérimente|expérimentes|expérimentent|expérimentions|expérimentiez|expérimentaient|expérimentasse|expérimentasses|expérimentât|expérimentassions|expérimentassiez|expérimentassent|expérimentant|expérimenté|expérimentée|expérimentés|expérimentées|expérimenter|expérimentons|expérimentez|expérimentent|expérimenterai|expérimenteras|expérimentera|expérimenterons|expérimenterez|expérimenteront|expérimenterais|expérimenterait|expérimenterions|expérimenteriez|expérimenteraient|expérimente|expérimentes|expérimentent|expérimentions|expérimentiez|expérimentaient|expérimentasse|expérimentasses|expérimentât|expérimentassions|expérimentassiez|expérimentassent|expérimentant|expérimenté|expérimentée|expérimentés|expérimentées|expérimenter|expérimentons|expérimentez|expérimentent|expérimenterai|expérimenteras|expérimentera|expérimenterons|expérimenterez|expérimenteront|expérimenterais|expérimenterait|expérimenterions|expérimenteriez|expérimenteraient|expérimente|expérimentes|expérimentent|expérimentions|expérimentiez|expérimentaient|expérimentasse|expérimentasses|expérimentât|expérimentassions|expérimentassiez|expérimentassent)\b',
+        ]
+        
+        for pattern in experience_indicators:
+            if re.search(pattern, text_lower):
+                return 3  # Valeur par défaut si expérience mentionnée mais pas de durée
+        
+        return 0  # Aucune expérience détectée
 
     def calculate_compatibility(self, cv_text: str, job_description: str, pdf_file=None) -> Tuple[float, List[str], List[str]]:
         """Calcule la compatibilité entre CV et offre"""
@@ -454,42 +610,65 @@ class MLCVAnalyzer:
             Dictionnaire contenant les résultats de l'analyse
         """
         try:
-            # Calcul du score de compatibilité
-            score, matched, missing = self.calculate_compatibility(cv_text, job_description, pdf_file)
+            # Nettoyage initial du texte
+            clean_cv = self._clean_text(cv_text) if cv_text else ""
+            clean_job = self._clean_text(job_description) if job_description else ""
             
-            # Prédiction de la catégorie avec ML
+            # Extraction des compétences avant le calcul de compatibilité
             try:
-                category, confidence = self.predict_job_category(cv_text)
-            except Exception as e:
-                logger.error(f"Erreur prédiction catégorie: {e}")
-                category, confidence = "Non déterminé", 0.0
-            
-            # Extraction des compétences
-            try:
-                cv_skills = self.extract_skills(self._clean_text(cv_text))
-                job_skills = self.extract_skills(self._clean_text(job_description))
+                cv_skills = self.extract_skills(clean_cv)
+                job_skills = self.extract_skills(clean_job)
+                
+                # Si pas de compétences trouvées, essayer avec le texte brut
+                if not cv_skills and cv_text:
+                    cv_skills = self.extract_skills(cv_text.lower())
+                if not job_skills and job_description:
+                    job_skills = self.extract_skills(job_description.lower())
+                    
             except Exception as e:
                 logger.error(f"Erreur extraction compétences: {e}")
                 cv_skills = {}
                 job_skills = {}
             
-            # Génération du résumé
+            # Calcul du score de compatibilité
+            score, matched, missing = self.calculate_compatibility(cv_text, job_description, pdf_file)
+            
+            # Prédiction de la catégorie avec ML et gestion des erreurs
+            try:
+                category, confidence = self.predict_job_category(clean_cv or cv_text)
+                # Si la catégorie est "Non spécifié", essayer avec plus de contexte
+                if category == "Non spécifié" and len(clean_cv) > 100:
+                    # Essayer avec les 100 premiers et 100 derniers caractères
+                    context_text = clean_cv[:500] + " " + clean_cv[-500:]
+                    category, confidence = self.predict_job_category(context_text)
+            except Exception as e:
+                logger.error(f"Erreur prédiction catégorie: {e}")
+                category, confidence = self._fallback_category_detection(clean_cv or cv_text)
+            
+            # Génération du résumé avec gestion des erreurs
             try:
                 summary = self.summarize_cv(cv_text)
+                if not summary or summary == "Résumé non disponible":
+                    summary = self._generate_fallback_summary(clean_cv, cv_skills, category, confidence)
             except Exception as e:
                 logger.error(f"Erreur génération résumé: {e}")
-                summary = "Résumé non disponible"
+                summary = self._generate_fallback_summary(clean_cv, cv_skills, category, confidence)
             
-            # Construction du résultat
+            # S'assurer que les compétences sont bien formatées
+            matched_skills = list(cv_skills.keys())[:10] if cv_skills else []
+            missing_skills = list(job_skills.keys())[:10] if job_skills else []
+            
+            # Construction du résultat avec des valeurs par défaut garanties
             result = {
                 'match_score': score,
-                'matched_skills': matched,
-                'missing_skills': missing,
-                'cv_skills': cv_skills,
-                'job_skills': job_skills,
-                'job_category': category,
-                'category_confidence': confidence,
-                'analysis_summary': summary,
+                'matched_skills': matched_skills or ["Aucune compétence correspondante identifiée"],
+                'missing_skills': missing_skills or ["Toutes les compétences requises sont présentes"],
+                'cv_skills': cv_skills or {},
+                'job_skills': job_skills or {},
+                'job_category': category or "Non spécifié",
+                'category_confidence': max(0.0, min(1.0, float(confidence or 0.0))),
+                'analysis_summary': summary or "Aucun détail d'analyse disponible",
+                'analysis_details': self._generate_analysis_details(clean_cv, score, category, confidence, cv_skills, job_skills),
                 'ml_model_used': self.ml_matcher is not None,
                 'success': True
             }
@@ -540,104 +719,290 @@ class MLCVAnalyzer:
         
         return ' '.join(words).strip().capitalize()
 
+    def _is_irrelevant_skill(self, skill: str) -> bool:
+        """Détermine si une compétence est non pertinente"""
+        if not skill or len(skill) < 2 or len(skill) > 30:
+            return True
+            
+        # Mots à exclure
+        excluded_terms = {
+            'th', 'utr', 'cad', 'etc', 'the', 'and', 'for', 'with', 'using', 'via',
+            'use', 'used', 'utilize', 'utilized', 'utilizing', 'work', 'working',
+            'experience', 'experiences', 'project', 'projects', 'description', 'descriptions',
+            'responsibility', 'responsibilities', 'task', 'tasks', 'duty', 'duties',
+            'skill', 'skills', 'technology', 'technologies', 'tool', 'tools', 'framework',
+            'frameworks', 'library', 'libraries', 'language', 'languages', 'programming',
+            'development', 'developing', 'developed', 'engineer', 'engineering',
+            'transaction', 'transactions', 'assurant', 'assure', 'assured', 'assuring',
+            'programmer', 'program', 'programs', 'code', 'coding', 'coder',
+            'performance', 'infrastructure', 'description', 'flexible', 'cit', 'net', 'man', 'ios',
+            'good', 'strong', 'excellent', 'basic', 'advanced', 'knowledge', 'ability', 'abilities',
+            'understanding', 'familiarity', 'familiar', 'proficient', 'proficiency', 'level', 'levels',
+            'years', 'year', 'month', 'months', 'day', 'days', 'time', 'times'
+        }
+        
+        # Vérifier les mots exclus
+        skill_lower = skill.lower()
+        if any(term in skill_lower for term in excluded_terms):
+            return True
+            
+        # Vérifier les motifs non pertinents
+        if any(c.isdigit() for c in skill):
+            return True
+            
+        if len(skill_lower) <= 2:
+            return True
+            
+        return False
+
     def extract_skills(self, text: str) -> Dict[str, float]:
-        """Extrait les compétences techniques du texte avec un meilleur filtrage"""
+        """
+        Extrait et pèse les compétences techniques d'un texte de CV
+        avec un filtrage amélioré des compétences non pertinentes.
+        
+        Args:
+            text: Texte du CV à analyser
+            
+        Returns:
+            Dictionnaire des compétences trouvées avec leur score (0-1)
+        """
         if not text or not isinstance(text, str):
             return {}
 
         # Nettoyer le texte
         text_clean = self._clean_text(text)
-        
-        # Convertir en minuscules pour la correspondance insensible à la casse
         text_lower = text_clean.lower()
+        
+        # Liste noire de mots non pertinents
+        blacklist = {'inter', 'digital', 'retour', 'résultats', 'analyse', 'score', 'correspondance',
+                    'expérience', 'compétence', 'logiciel', 'technologie', 'outil', 'projet'}
         
         # Dictionnaire pour stocker les compétences trouvées avec leur score
         skills_found = {}
         
         # 1. Vérifier les compétences du dataset
         for skill in self._skills_set:
-            # Ignorer les compétences trop courtes
-            if len(skill) < 3:
+            skill_lower = skill.lower()
+            
+            # Ignorer les compétences non pertinentes
+            if (self._is_irrelevant_skill(skill) or 
+                any(term in skill_lower for term in blacklist) or
+                len(skill) < 3):
                 continue
                 
             # Vérifier la présence de la compétence dans le texte
-            if skill.lower() in text_lower:
-                # Calculer un score basé sur la longueur de la compétence
-                # et la fréquence d'apparition
-                count = text_lower.count(skill.lower())
-                score = min(len(skill) * 0.1 * (1 + count * 0.2), 1.0)  # Score entre 0.1 et 1.0
+            if skill_lower in text_lower:
+                # Calculer un score basé sur la longueur et la fréquence
+                count = text_lower.count(skill_lower)
+                score = min(0.5 + (len(skill) * 0.05) + (count * 0.1), 1.0)
                 skills_found[skill] = max(skills_found.get(skill, 0), score)
         
-        # 2. Détection des langages de programmation (score élevé car très spécifiques)
-        programming_keywords = {
+        # 2. Détection des compétences techniques courantes
+        tech_keywords = [
+            # Langages
             'python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'php', 'ruby',
             'swift', 'kotlin', 'go', 'rust', 'scala', 'r', 'matlab', 'bash', 'sql',
-            'html', 'css', 'sass', 'less', 'dart', 'perl', 'haskell', 'elixir', 'erlang'
-        }
-        
-        # 3. Détection des frameworks et bibliothèques
-        framework_keywords = {
+            'html', 'css', 'sass', 'less', 'dart', 'perl', 'haskell', 'elixir', 'erlang',
+            # Frameworks
             'django', 'flask', 'fastapi', 'spring', 'spring boot', 'react', 'angular', 
             'vue', 'vue.js', 'node.js', 'express', 'laravel', 'ruby on rails', 'asp.net',
             'tensorflow', 'pytorch', 'keras', 'pandas', 'numpy', 'scikit-learn', 'opencv',
             'react native', 'flutter', 'xamarin', 'ionic', 'electron', 'next.js', 'nuxt.js',
-            'graphql', 'apollo', 'grpc', 'thrift', 'kafka', 'rabbitmq', 'celery'
-        }
-        
-        # 4. Détection des outils et plateformes
-        tool_keywords = {
+            # Outils
             'git', 'github', 'gitlab', 'bitbucket', 'docker', 'kubernetes', 'jenkins',
-            'ansible', 'terraform', 'aws', 'amazon web services', 'azure', 'google cloud',
-            'gcp', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'kibana',
-            'prometheus', 'grafana', 'splunk', 'datadog', 'new relic', 'sentry', 'jira',
-            'confluence', 'trello', 'asana', 'slack', 'microsoft teams', 'zoom', 'figma',
-            'sketch', 'adobe xd', 'zeplin', 'invision', 'docker-compose', 'helm', 'argo',
-            'istio', 'linkerd', 'consul', 'vault', 'terraform cloud', 'pulumi', 'serverless'
-        }
+            'ansible', 'terraform', 'aws', 'azure', 'gcp', 'postgresql', 'mysql', 
+            'mongodb', 'redis', 'elasticsearch', 'kibana', 'prometheus', 'grafana'
+        ]
         
-        # 5. Vérifier les mots-clés dans le texte avec des scores différents
-        for keyword_set, base_score in [
-            (programming_keywords, 0.9),   # Score élevé pour les langages
-            (framework_keywords, 0.8),     # Score moyen-élevé pour les frameworks
-            (tool_keywords, 0.7)           # Score moyen pour les outils
-        ]:
-            for keyword in keyword_set:
-                if keyword in text_lower:
-                    # Si le mot-clé contient plusieurs mots, vérifier la correspondance exacte
-                    if ' ' in keyword:
-                        if keyword in text_lower:
-                            skills_found[keyword] = max(skills_found.get(keyword, 0), base_score)
-                    else:
-                        # Pour les mots simples, vérifier les limites de mot
-                        words = set(text_lower.split())
-                        if keyword in words:
-                            skills_found[keyword] = max(skills_found.get(keyword, 0), base_score)
+        # 3. Vérifier les mots-clés techniques dans le texte
+        for keyword in tech_keywords:
+            if keyword in text_lower:
+                # Score de base plus élevé pour les compétences techniques confirmées
+                score = 0.8 if ' ' in keyword else 0.7
+                skills_found[keyword] = max(skills_found.get(keyword, 0), score)
         
-        # 6. Utiliser spaCy pour l'extraction des entités nommées si disponible
+        # 4. Utiliser spaCy pour l'extraction des entités nommées si disponible
         if hasattr(self, 'nlp') and self.nlp:
             try:
                 doc = self.nlp(text_clean)
                 for ent in doc.ents:
-                    if ent.label_ in ['ORG', 'PRODUCT', 'TECH'] and len(ent.text) > 2:
-                        skill = ent.text.lower().strip()
-                        skills_found[skill] = max(skills_found.get(skill, 0), 0.6)
+                    if ent.label_ in ['ORG', 'PRODUCT', 'TECH'] and 3 < len(ent.text) < 30:
+                        skill = ent.text.strip().lower()
+                        if (not self._is_irrelevant_skill(skill) and 
+                            not any(term in skill for term in blacklist) and
+                            len(skill) > 3):
+                            skills_found[skill] = max(skills_found.get(skill, 0), 0.6)
             except Exception as e:
                 logger.warning(f"Erreur lors de l'extraction des entités avec spaCy: {e}")
         
-        # 7. Filtrer les compétences trop courtes ou non pertinentes
+        # 5. Filtrer et trier les compétences
         filtered_skills = {
-            skill: score for skill, score in skills_found.items()
-            if len(skill) > 2 and not any(c.isdigit() for c in skill)
+            skill: round(score, 2) 
+            for skill, score in skills_found.items()
+            if (not self._is_irrelevant_skill(skill) and 
+                not any(term in skill.lower() for term in blacklist) and
+                len(skill) > 2)
         }
         
-        # Trier les compétences par score décroissant
-        sorted_skills = dict(sorted(
+        # Trier par score décroissant et limiter à 20 compétences
+        return dict(sorted(
             filtered_skills.items(),
-            key=lambda item: item[1],
-            reverse=True
-        ))
+            key=lambda x: (-x[1], x[0])
+        )[:20])
+
+    def predict_job_category(self, text: str) -> tuple[str, float]:
+        """
+        Prédit la catégorie d'emploi à partir du texte du CV avec une détection avancée.
+        Utilise une approche pondérée basée sur les mots-clés et leur importance.
         
-        return sorted_skills
+        Args:
+            text: Texte du CV à analyser
+            
+        Returns:
+            Tuple (catégorie, confiance) où confiance est entre 0 et 1
+        """
+        if not text or not text.strip():
+            return "Non spécifié", 0.0
+            
+        # Liste des catégories avec mots-clés pondérés
+        categories = {
+            "Développement Logiciel": {
+                # Mots-clés principaux (poids 2)
+                "développeur": 2, "ingénieur logiciel": 2, "programmeur": 2,
+                "software engineer": 2, "ingénieur en informatique": 2, "développeuse": 2,
+                "développeur web": 2, "développeur fullstack": 2, "full stack": 2,
+                "programmation": 2, "coding": 2, "développement logiciel": 2,
+                # Technologies spécifiques (poids 1)
+                "java": 1, "python": 1, "javascript": 1, "c++": 1, "c#": 1, "php": 1,
+                "ruby": 1, "swift": 1, "kotlin": 1, "go": 1, "rust": 1, "typescript": 1,
+                # Frameworks (poids 0.8)
+                "spring": 0.8, "django": 0.8, "flask": 0.8, "react": 0.8, "angular": 0.8,
+                "vue": 0.8, "node.js": 0.8, "express": 0.8, "laravel": 0.8, ".net": 0.8,
+                # Outils (poids 0.5)
+                "git": 0.5, "github": 0.5, "gitlab": 0.5, "jira": 0.5, "docker": 0.5,
+                "kubernetes": 0.5, "jenkins": 0.5, "ansible": 0.5, "terraform": 0.5
+            },
+            "Data Science": {
+                # Mots-clés principaux (poids 2)
+                "data scientist": 2, "machine learning": 2, "intelligence artificielle": 2,
+                "data analysis": 2, "big data": 2, "data analyst": 2, "data engineer": 2,
+                "ml engineer": 2, "deep learning": 2, "data mining": 2, "data science": 2,
+                # Technologies spécifiques (poids 1.5)
+                "tensorflow": 1.5, "pytorch": 1.5, "keras": 1.5, "scikit-learn": 1.5,
+                "pandas": 1.5, "numpy": 1.5, "matplotlib": 1.5, "seaborn": 1.5,
+                # Concepts (poids 1)
+                "statistique": 1, "statistiques": 1, "apprentissage automatique": 1,
+                "réseau de neurones": 1, "nlp": 1, "traitement du langage naturel": 1,
+                "computer vision": 1, "vision par ordinateur": 1, "analyse prédictive": 1
+            },
+            "Réseau et Sécurité": {
+                # Mots-clés principaux (poids 2)
+                "réseau": 2, "sécurité": 2, "cybersécurité": 2, "admin système": 2,
+                "devops": 2, "système": 2, "réseaux": 2, "sécurisation": 2, "pentest": 2,
+                "ethical hacking": 2, "administration système": 2, "sysadmin": 2,
+                # Technologies (poids 1.5)
+                "cisco": 1.5, "juniper": 1.5, "fortinet": 1.5, "palo alto": 1.5,
+                "wireshark": 1.5, "metasploit": 1.5, "nmap": 1.5, "burp suite": 1.5,
+                # Concepts (poids 1)
+                "pare-feu": 1, "firewall": 1, "vpn": 1, "proxy": 1, "ids": 1, "ips": 1,
+                "siem": 1, "soc": 1, "grc": 1, "iso 27001": 1, "rgpd": 1
+            },
+            "Design et UX/UI": {
+                # Mots-clés principaux (poids 2)
+                "designer": 2, "ux": 2, "ui": 2, "user experience": 2, "interface utilisateur": 2,
+                "design graphique": 2, "webdesign": 2, "web design": 2, "ergonomie": 2,
+                "maquettage": 2, "wireframe": 2, "prototypage": 2, "design thinking": 2,
+                # Outils (poids 1.5)
+                "figma": 1.5, "sketch": 1.5, "adobe xd": 1.5, "invision": 1.5,
+                "zeplin": 1.5, "axure": 1.5, "balsamiq": 1.5, "marvel": 1.5,
+                # Compétences (poids 1)
+                "design system": 1, "design d'interface": 1, "expérience utilisateur": 1,
+                "interaction design": 1, "motion design": 1, "illustration": 1,
+                "identité visuelle": 1, "charte graphique": 1, "typographie": 1
+            },
+            "Gestion de Projet": {
+                # Mots-clés principaux (poids 2)
+                "chef de projet": 2, "project manager": 2, "scrum master": 2, "product owner": 2,
+                "gestion de projet": 2, "management": 2, "agile": 2, "scrum": 2, "kanban": 2,
+                "pmp": 2, "prince2": 2, "conduite de projet": 2, "cheffe de projet": 2,
+                # Méthodologies (poids 1.5)
+                "safe": 1.5, "leSS": 1.5, "nexus": 1.5, "discipline agile": 1.5,
+                "design sprint": 1.5, "lean": 1.5, "six sigma": 1.5, "itil": 1.5,
+                # Outils (poids 1)
+                "jira": 1, "confluence": 1, "trello": 1, "asana": 1, "microsoft project": 1,
+                "monday.com": 1, "basecamp": 1, "wrike": 1, "clickup": 1
+            },
+            "Marketing Digital": {
+                # Mots-clés principaux (poids 2)
+                "marketing digital": 2, "community manager": 2, "réseaux sociaux": 2,
+                "référencement": 2, "seo": 2, "sea": 2, "social media": 2, "content marketing": 2,
+                "inbound marketing": 2, "email marketing": 2, "growth hacking": 2, "webmarketing": 2,
+                # Plateformes (poids 1.5)
+                "facebook ads": 1.5, "google ads": 1.5, "linkedin": 1.5, "instagram": 1.5,
+                "tiktok": 1.5, "youtube": 1.5, "twitter": 1.5, "pinterest": 1.5,
+                # Outils (poids 1)
+                "google analytics": 1, "google tag manager": 1, "google search console": 1,
+                "semrush": 1, "ahrefs": 1, "moz": 1, "hubspot": 1, "mailchimp": 1,
+                "activecampaign": 1, "klaviyo": 1
+            },
+            "Ressources Humaines": {
+                # Mots-clés principaux (poids 2)
+                "ressources humaines": 2, "rh": 2, "recruteur": 2, "recrutement": 2,
+                "gestion des talents": 2, "gestion des carrières": 2, "formation": 2,
+                "développement des compétences": 2, "gestion des performances": 2,
+                "paie": 2, "administration du personnel": 2,
+                # Compétences (poids 1.5)
+                "gestion des conflits": 1.5, "négociation": 1.5, "entretien d'embauche": 1.5,
+                "onboarding": 1.5, "marque employeur": 1.5, "bien-être au travail": 1.5,
+                "qvt": 1.5, "rse": 1.5, "diversité et inclusion": 1.5,
+                # Outils (poids 1)
+                "sirh": 1, "talentsoft": 1, "payfit": 1, "lucca": 1, "hr access": 1,
+                "workday": 1, "successfactors": 1, "bamboo hr": 1, "personio": 1
+            }
+        }
+        
+        # Initialiser les scores à zéro
+        category_scores = {category: 0.0 for category in categories}
+        
+        # Convertir le texte en minuscules pour la recherche insensible à la casse
+        text_lower = text.lower()
+        
+        # Calculer le score pour chaque catégorie
+        for category, keywords in categories.items():
+            for keyword, weight in keywords.items():
+                if keyword in text_lower:
+                    category_scores[category] += weight
+        
+        # Trouver la catégorie avec le score le plus élevé
+        if not any(category_scores.values()):
+            return "Non spécifié", 0.0
+        
+        # Calculer le score total pour normaliser
+        total_score = sum(category_scores.values())
+        
+        # Trouver la catégorie gagnante et son score
+        best_category = max(category_scores, key=category_scores.get)
+        best_score = category_scores[best_category]
+        
+        # Calculer la confiance (entre 0 et 1)
+        if total_score > 0:
+            # Normaliser le score entre 0.5 et 1.0
+            confidence = 0.5 + 0.5 * (best_score / total_score)
+            # Limiter à 0.95 pour laisser de la place à l'incertitude
+            confidence = min(confidence, 0.95)
+        else:
+            confidence = 0.5  # Valeur par défaut si aucun mot-clé n'est trouvé
+        
+        # Vérifier si la confiance est suffisante
+        if best_score < 1.0:  # Seuil minimum pour une catégorisation fiable
+            return "Non spécifié", 0.0
+        
+        # Si la catégorie a un score très faible, retourner "Non spécifié"
+        if best_score / total_score < 0.2:  # Moins de 20% du score total
+            return "Non spécifié", 0.0
+        
+        # Retourner la catégorie avec la confiance
+        return best_category, confidence
 
     def summarize_cv(self, cv_text: str) -> str:
         """Génère un résumé concis du CV avec des compétences pertinentes"""
@@ -648,27 +1013,38 @@ class MLCVAnalyzer:
             # Nettoyer le texte
             clean_text = self._clean_text(cv_text)
             
-            # Prédire la catégorie
-            category, confidence = self.predict_job_category(clean_text)
+            # Prédire la catégorie avec gestion des erreurs
+            try:
+                category, confidence = self.predict_job_category(clean_text)
+            except Exception as e:
+                logger.error(f"Erreur lors de la prédiction de la catégorie: {e}")
+                category, confidence = "Non spécifié", 0.0
             
-            # Extraire les informations clés
-            experience_years = self.extract_experience_years(clean_text)
+            # Extraire les années d'expérience avec gestion des erreurs
+            try:
+                experience_years = self.extract_experience_years(clean_text)
+            except Exception as e:
+                logger.error(f"Erreur lors de l'extraction des années d'expérience: {e}")
+                experience_years = 0
             
-            # Extraire et nettoyer les compétences
-            skills = self.extract_skills(clean_text)
-            
-            # Filtrer et trier les compétences
-            filtered_skills = {}
-            for skill, score in skills.items():
-                cleaned_skill = self._clean_skill(skill)
-                if cleaned_skill and len(cleaned_skill) > 2:  # Ignorer les mots trop courts
-                    if cleaned_skill not in filtered_skills or score > filtered_skills[cleaned_skill]:
-                        filtered_skills[cleaned_skill] = score
-            
-            # Prendre les 5 meilleures compétences
-            top_skills = sorted(filtered_skills.items(), 
-                              key=lambda x: x[1], 
-                              reverse=True)[:5]
+            # Extraire et nettoyer les compétences avec gestion des erreurs
+            try:
+                skills = self.extract_skills(clean_text)
+                # Filtrer et trier les compétences
+                filtered_skills = {}
+                for skill, score in skills.items():
+                    cleaned_skill = self._clean_skill(skill)
+                    if cleaned_skill and len(cleaned_skill) > 2:  # Ignorer les mots trop courts
+                        if cleaned_skill not in filtered_skills or score > filtered_skills[cleaned_skill]:
+                            filtered_skills[cleaned_skill] = score
+                
+                # Prendre les 5 meilleures compétences
+                top_skills = sorted(filtered_skills.items(), 
+                                  key=lambda x: x[1], 
+                                  reverse=True)[:5]
+            except Exception as e:
+                logger.error(f"Erreur lors de l'extraction des compétences: {e}")
+                top_skills = []
             
             # Construire le résumé
             summary_parts = []
@@ -689,16 +1065,16 @@ class MLCVAnalyzer:
                 skills_list = ", ".join([s[0] for s in top_skills if s[0].strip()])
                 if skills_list:
                     summary_parts.append(f"Compétences clés : {skills_list}.")
-            
+           
             # Ligne 3 : Note sur la confiance
             if confidence > 0.5:  # Ne montrer que si la confiance est raisonnable
                 summary_parts.append(f"(Niveau de confiance de l'analyse : {confidence*100:.0f}%)")
             
             # Retourner le tout avec des sauts de ligne
             return "\n\n".join(summary_parts) if summary_parts else "Résumé non disponible"
-            
+                
         except Exception as e:
-            logger.error(f"Erreur lors de la génération du résumé: {e}")
+            logger.error(f"Erreur lors de la génération du résumé: {e}", exc_info=True)
             return "Résumé temporairement indisponible."
 
     def _extract_detailed_experience(self, text: str) -> str:
@@ -714,41 +1090,116 @@ class MLCVAnalyzer:
         # Ajout des années d'expérience
         if experience_years > 0:
             experience_info.append(f"Total d'expérience: {experience_years} ans")
-        else:
             experience_info.append("Débutant ou expérience non spécifiée")
         
         return ". ".join(experience_info) + "."
+
+    def _fallback_category_detection(self, text: str) -> tuple[str, float]:
+        """
+        Détection de catégorie de secours lorsque la prédiction principale échoue.
+        
+        Args:
+            text: Texte du CV à analyser
+            
+        Returns:
+            Tuple (catégorie, confiance) avec une catégorie par défaut
+        """
+        if not text:
+            return "Non spécifié", 0.0
+            
+        text_lower = text.lower()
+        
+        # Détection basique basée sur les compétences
+        tech_skills = sum(1 for skill in ['python', 'java', 'javascript', 'c++', 'sql'] 
+                         if skill in text_lower)
+        design_skills = sum(1 for skill in ['design', 'ui', 'ux', 'figma', 'sketch', 'photoshop'] 
+                           if skill in text_lower)
+        data_skills = sum(1 for skill in ['data', 'analyse', 'statistique', 'machine learning', 'ai'] 
+                         if skill in text_lower)
+        
+        if tech_skills > 0:
+            if data_skills > tech_skills / 2:
+                return "Data Science", 0.7
+            return "Développement Logiciel", 0.7
+        elif design_skills > 1:
+            return "Design et UX/UI", 0.7
+        elif data_skills > 1:
+            return "Data Science", 0.7
+            
+        return "Non spécifié", 0.5
     
-    def _extract_job_titles(self, text: str) -> list:
-        """Extrait les intitulés de poste du CV"""
-        job_titles = []
-        # Expressions régulières pour détecter les intitulés de poste
-        patterns = [
-            r"(?:Développeur|Ingénieur|Chef de projet|Consultant|Technicien)\s+\w+",
-            r"\b(?:Senior|Junior|Lead|Architecte)\s+\w+",
-        ]
+    def _generate_analysis_details(self, text: str, score: float, category: str, 
+                                confidence: float, cv_skills: dict, job_skills: dict) -> str:
+        """
+        Génère des détails d'analyse détaillés pour le CV.
         
-        for pattern in patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            job_titles.extend([m.strip() for m in matches if len(m) > 5])
+        Args:
+            text: Texte du CV
+            score: Score de correspondance
+            category: Catégorie prédite
+            confidence: Confiance de la prédiction
+            cv_skills: Compétences du CV
+            job_skills: Compétences du poste
+            
+        Returns:
+            Chaîne de caractères avec les détails d'analyse
+        """
+        details = []
         
-        return list(dict.fromkeys(job_titles))  # Supprime les doublons
-    
-    def _extract_education(self, text: str) -> str:
-        """Extrait les informations de formation"""
-        education_keywords = [
-            "diplôme", "licence", "master", "doctorat", "ingénieur", "bac", "bts", "dut",
-            "formation", "école", "université", "études", "graduation"
-        ]
+        # 1. En-tête d'analyse
+        details.append("=== DÉTAILS DE L'ANALYSE ===")
+        details.append("")
         
-        education = []
-        lines = text.split('\n')
+        # 2. Catégorisation
+        details.append("📋 CATÉGORISATION")
+        details.append(f"- Catégorie prédite: {category}")
+        details.append(f"- Niveau de confiance: {confidence*100:.1f}%")
+        details.append("")
         
-        for line in lines:
-            if any(keyword in line.lower() for keyword in education_keywords):
-                education.append(line.strip())
+        # 3. Score de correspondance
+        details.append("🎯 SCORE DE CORRESPONDANCE")
+        details.append(f"- Score global: {score:.1f}/100")
         
-        return "\n".join(education[:3]) if education else "Formation non spécifiée"
+        # 4. Analyse des compétences
+        details.append("")
+        details.append("🔧 COMPÉTENCES IDENTIFIÉES")
+        
+        if cv_skills:
+            # Compétences triées par pertinence
+            sorted_skills = sorted(cv_skills.items(), key=lambda x: x[1], reverse=True)
+            top_skills = [f"{s[0]} ({s[1]*100:.0f}%)" for s in sorted_skills[:10]]
+            details.append("\n".join(["- " + skill for skill in top_skills]))
+        else:
+            details.append("- Aucune compétence clairement identifiée")
+        
+        # 5. Correspondance avec le poste
+        if job_skills:
+            details.append("")
+            details.append("✅ CORRESPONDANCE AVEC LE POSTE")
+            
+            # Compétences correspondantes
+            matched = [skill for skill in cv_skills if skill in job_skills]
+            if matched:
+                details.append("\nCompétences correspondantes :")
+                details.append("\n".join([f"- {s}" for s in matched[:10]]))
+            
+            # Compétences manquantes
+            missing = [skill for skill in job_skills if skill not in cv_skills]
+            if missing:
+                details.append("\nCompétences à développer :")
+                details.append("\n".join([f"- {s}" for s in missing[:10]]))
+        
+        # 6. Recommandations
+        details.append("")
+        details.append("💡 RECOMMANDATIONS")
+        if score < 50:
+            details.append("- Le profil présente un écart significatif avec les exigences du poste.")
+        elif score < 70:
+            details.append("- Le profil correspond partiellement aux attentes, une formation complémentaire pourrait être nécessaire.")
+        else:
+            details.append("- Le profil correspond bien aux attentes du poste.")
+        
+        return "\n".join(details)
     
     def _extract_projects(self, text: str) -> str:
         """Extrait les projets mentionnés dans le CV"""
@@ -758,54 +1209,9 @@ class MLCVAnalyzer:
         
         for line in lines:
             if any(keyword in line.lower() for keyword in project_keywords):
-                projects.append(f"- {line.strip()}")
+                projects.append(line.strip())
         
         return "\n".join(projects[:3]) if projects else "Aucun projet spécifié"
-
-    def predict_job_category(self, text: str) -> Tuple[str, float]:
-        """
-        Prédit la catégorie d'emploi à partir d'un texte de CV ou d'offre d'emploi
-        
-        Args:
-            text: Texte à analyser (CV ou offre d'emploi)
-            
-        Returns:
-            Tuple[str, float]: (Catégorie d'emploi prédite, Niveau de confiance 0-1)
-        """
-        if not text or not isinstance(text, str):
-            return "Inconnu", 0.0
-            
-        # Liste des catégories possibles (à adapter selon vos besoins)
-        categories = [
-            "Développement", "Réseau et sécurité", "Data Science", 
-            "DevOps", "Design", "Marketing", "Ventes", "Ressources Humaines"
-        ]
-        
-        # Si le modèle ML est disponible, l'utiliser pour la prédiction
-        if hasattr(self, 'ml_matcher') and self.ml_matcher is not None:
-            try:
-                # Utiliser le modèle pour prédire la catégorie
-                category, confidence = self.ml_matcher.predict_category(text)
-                if category:
-                    return str(category), float(confidence)
-            except Exception as e:
-                logger.error(f"Erreur lors de la prédiction de catégorie: {e}")
-                logger.error(f"Type d'erreur: {type(e).__name__}", exc_info=True)
-        
-        # Méthode de repli basée sur des mots-clés avec une confiance plus faible
-        text_lower = text.lower()
-        if any(word in text_lower for word in ["devops", "deploy", "ci/cd", "aws", "azure", "docker", "kubernetes"]):
-            return "DevOps", 0.7
-        elif any(word in text_lower for word in ["data", "machine learning", "ai", "intelligence artificielle"]):
-            return "Data Science", 0.7
-        elif any(word in text_lower for word in ["frontend", "front-end", "react", "angular", "vue", "javascript"]):
-            return "Développement Frontend", 0.7
-        elif any(word in text_lower for word in ["backend", "back-end", "node", "django", "spring", ".net"]):
-            return "Développement Backend", 0.7
-        elif any(word in text_lower for word in ["réseau", "sécurité", "cybersécurité", "admin système"]):
-            return "Réseau et sécurité", 0.7
-            
-        return "Autre", 0.5
 
     def rank_cvs(self, cvs_data: List[Dict], job_description: str) -> List[Dict]:
         """

@@ -4,7 +4,6 @@ import { Upload, FileSearch, AlertCircle, CheckCircle, FileText } from 'lucide-r
 import { User, CV } from '../../types';
 import { cvService } from '../../services/cvService';
 import CVList from './CVList';
-import Navbar from '../Layout/Navbar';
 
 interface CVAnalysisWizardProps {
   user: User;
@@ -20,7 +19,24 @@ const CVAnalysisWizard: React.FC<CVAnalysisWizardProps> = ({ user, onAnalysisCom
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
   const [showCVList, setShowCVList] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        setCvFile(file);
+        setSelectedCV(null);
+        setError(null);
+      } else {
+        setError('Veuillez sélectionner un fichier PDF valide');
+      }
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('Fichier sélectionné:', e.target.files);
@@ -75,6 +91,10 @@ const CVAnalysisWizard: React.FC<CVAnalysisWizardProps> = ({ user, onAnalysisCom
         { job_description: jobText }
       );
       
+      console.log('Réponse complète de l\'API:', analysisResponse);
+      console.log('Résumé disponible:', analysisResponse.summary);
+      console.log('Tous les champs disponibles:', Object.keys(analysisResponse));
+      
       setResult(analysisResponse);
       if (onAnalysisComplete) {
         onAnalysisComplete(analysisResponse);
@@ -106,46 +126,49 @@ const CVAnalysisWizard: React.FC<CVAnalysisWizardProps> = ({ user, onAnalysisCom
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600">
-      <Navbar user={user} onLogout={() => {}} role="candidat" />
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="mb-6">
+    <div className="min-h-full">
+      <main className="w-full">
+        <div className="p-2">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="flex items-center text-white hover:text-blue-100 mb-4 transition-colors"
+              className="group flex items-center text-blue-100 hover:text-white mb-2 transition-colors duration-200"
             >
-              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Retour au tableau de bord
+              <span className="font-medium">Retour au tableau de bord</span>
             </button>
           )}
-          <h3 className="text-2xl font-bold text-white flex items-center">
-            <FileSearch className="mr-3 text-blue-200" />
-            Analyse de CV et Offre d'Emploi
-          </h3>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-lg">
+        <form onSubmit={handleSubmit} className="space-y-8 p-6">
           {/* Section Sélection CV */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-white">
-                {selectedCV ? 'CV sélectionné' : 'Sélectionner un CV existant'}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <label className="block text-sm font-medium text-blue-100">
+                {selectedCV ? '📄 CV sélectionné' : '📂 Sélectionner un CV existant'}
               </label>
               <button
                 type="button"
                 onClick={() => setShowCVList(!showCVList)}
-                className="text-sm text-white hover:text-blue-200 font-medium bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded-md transition-colors"
+                className="text-sm px-3 py-1 rounded-full bg-white/10 text-blue-100 hover:bg-white/20 transition-colors duration-200 flex items-center"
               >
-                {showCVList ? 'Masquer la liste' : 'Voir mes CVs'}
+                {showCVList ? (
+                  <>
+                    <span className="mr-1">👆</span> Masquer
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-1">📋</span> Voir mes CVs
+                  </>
+                )}
               </button>
             </div>
             
             {showCVList && (
-              <div className="mb-4 border rounded-lg p-3 bg-gray-50">
+              <div className="mb-4 animate-fade-in">
                 <CVList 
                   onSelectCV={handleSelectCV} 
                   onDeleteCV={handleDeleteCV}
@@ -324,7 +347,27 @@ const CVAnalysisWizard: React.FC<CVAnalysisWizardProps> = ({ user, onAnalysisCom
             <div className="mt-6 space-y-4">
               <div>
                 <h4 className="text-lg font-medium mb-2">Résumé du CV</h4>
-                <p className="text-gray-700">{result.summary || 'Aucun résumé disponible.'}</p>
+                {result.summary ? (
+                  <p className="text-gray-700">{result.summary}</p>
+                ) : (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-yellow-700">
+                          Aucun résumé n'a été généré pour ce CV. Voici les données disponibles :
+                        </p>
+                        <div className="mt-2 text-sm text-yellow-700 bg-yellow-100 p-2 rounded overflow-auto max-h-40">
+                          <pre>{JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div>

@@ -6,6 +6,35 @@ import { User } from '../types';
 import { cvService } from '../services/cvService';
 import { ArrowLeft } from 'lucide-react';
 
+// Liste des mots à exclure des compétences
+const EXCLUDED_WORDS = new Set([
+  'inter', 'digital', 'retour', 'résultats', 'analyse', 'score', 'votre', 'cv',
+  'correspond', 'à', 'des', 'exigences', 'de', 'loffre', 'compétences',
+  'correspondantes', 'améliorer', 'résumé', 'du', 'profil', 'avec', 'ans',
+  'expérience', 'professionnelle', 'clés', 'niveau', 'confiance', 'pourcent',
+  'pourcentage', 'annee', 'année', 'mois', 'jour', 'date', 'années', 'mois', 'jours'
+]);
+
+// Fonction pour nettoyer et filtrer les compétences
+const filterSkills = (skills?: string[]): string[] => {
+  if (!skills) return [];
+  
+  return skills.filter(skill => {
+    if (!skill) return false;
+    
+    const lowerSkill = skill.toLowerCase().trim();
+    const words = lowerSkill.split(/[\s\-+_&,;.:/\\|]/);
+    
+    // Exclure les mots vides, trop courts ou dans la liste d'exclusion
+    return (
+      lowerSkill.length >= 2 && 
+      !EXCLUDED_WORDS.has(lowerSkill) &&
+      !words.some(word => EXCLUDED_WORDS.has(word)) &&
+      !/^[0-9\s\-+_&,;.:/\\|]+$/.test(lowerSkill)
+    );
+  });
+};
+
 interface AnalysisItem {
   id: number;
   cv_file_name: string;
@@ -126,11 +155,11 @@ export default function HistoryPage({ user }: { user: User | null }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-700">Chargement de votre historique...</h2>
-          <p className="text-gray-500 mt-2">Veuillez patienter un instant</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
+        <div className="text-center bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-white">Chargement de votre historique...</h2>
+          <p className="text-white/80 mt-2">Veuillez patienter un instant</p>
         </div>
       </div>
     );
@@ -138,18 +167,18 @@ export default function HistoryPage({ user }: { user: User | null }) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-6 text-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white/10 backdrop-blur-sm p-6 text-center rounded-2xl shadow-lg">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Erreur de chargement</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h2 className="text-xl font-semibold text-white mb-2">Erreur de chargement</h2>
+          <p className="text-white/80 mb-6">{error}</p>
           <button
             onClick={loadHistory}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="px-6 py-2 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600"
           >
             Réessayer
           </button>
@@ -159,19 +188,12 @@ export default function HistoryPage({ user }: { user: User | null }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600">
       <Navbar user={user} onLogout={() => {}} role={user.role} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>
-            <Link 
-              to={user?.role === 'candidat' ? '/candidat/dashboard' : '/recruteur/dashboard'}
-              className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200"
-            >
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              <span>Retour au tableau de bord</span>
-            </Link>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mt-2">Historique des analyses</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Historique des analyses</h1>
             <p className="text-gray-600 mt-1">Retrouvez toutes vos analyses précédentes</p>
           </div>
           <div className="flex items-center space-x-3 w-full sm:w-auto">
@@ -206,7 +228,7 @@ export default function HistoryPage({ user }: { user: User | null }) {
                 </svg>
               </div>
               <h3 className="mt-4 text-lg font-medium text-gray-900">Aucune analyse trouvée</h3>
-              <p className="mt-1 text-gray-500 max-w-md mx-auto">
+              <p className="text-gray-500 mt-1">
                 Vous n'avez pas encore effectué d'analyse. Créez votre première analyse pour commencer.
               </p>
               <div className="mt-6">
@@ -347,42 +369,92 @@ export default function HistoryPage({ user }: { user: User | null }) {
                     <div className="space-y-3">
                       <div className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                         <span className="text-gray-600">Catégorie prédite</span>
-                        <span className="font-medium text-gray-900">
-                          {selectedAnalysis.predicted_category || 'Non spécifié'}
-                        </span>
+                        <div className="text-right">
+                          <span className="font-medium text-gray-900">
+                            {selectedAnalysis.predicted_category || 'Analyse en cours...'}
+                          </span>
+                          {selectedAnalysis.confidence_score && (
+                            <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                              {selectedAnalysis.confidence_score}% de confiance
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                         <span className="text-gray-600">Niveau d'expérience</span>
                         <span className="font-medium text-gray-900">
-                          {selectedAnalysis.experience_level || 'Non spécifié'}
+                          {selectedAnalysis.experience_level || 
+                           (selectedAnalysis.summary && selectedAnalysis.summary.includes('expérience') ? 
+                            'Détecté dans le CV' : 'Non spécifié')}
                         </span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-gray-100 last:border-0">
-                        <span className="text-gray-600">Confiance</span>
+                        <span className="text-gray-600">Dernière mise à jour</span>
                         <span className="font-medium text-gray-900">
-                          {selectedAnalysis.confidence_score ? `${selectedAnalysis.confidence_score}%` : 'N/A'}
+                          {formatDate(selectedAnalysis.created_at)}
                         </span>
                       </div>
+                      {selectedAnalysis.summary && (
+                        <div className="pt-2">
+                          <p className="text-sm text-gray-600 line-clamp-3">
+                            {selectedAnalysis.summary.split('\n')[0]}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                    <h3 className="font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                      Compétences identifiées
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedAnalysis.skills && selectedAnalysis.skills.length > 0 ? (
-                        selectedAnalysis.skills.map((skill: string, index: number) => (
-                          <span 
-                            key={index} 
-                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-                          >
-                            {skill}
+                    <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+                      <h3 className="font-semibold text-gray-800">
+                        Compétences identifiées
+                      </h3>
+                      {(() => {
+                        const filteredSkills = filterSkills(selectedAnalysis.skills);
+                        return filteredSkills.length > 0 && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                            {filteredSkills.length} compétence{filteredSkills.length > 1 ? 's' : ''}
                           </span>
-                        ))
-                      ) : (
-                        <p className="text-gray-500">Aucune compétence identifiée</p>
-                      )}
+                        );
+                      })()}
+                    </div>
+                    <div className="space-y-3">
+                      {(() => {
+                        const filteredSkills = filterSkills(selectedAnalysis.skills);
+                        return filteredSkills.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {filteredSkills.map((skill: string, index: number) => (
+                              <span 
+                                key={index} 
+                                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors duration-200"
+                                title={skill}
+                              >
+                                {skill.length > 20 ? `${skill.substring(0, 20)}...` : skill}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <svg 
+                              className="mx-auto h-12 w-12 text-gray-400" 
+                              fill="none" 
+                              viewBox="0 0 24 24" 
+                              stroke="currentColor"
+                            >
+                              <path 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={1.5} 
+                                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" 
+                              />
+                            </svg>
+                            <h4 className="mt-2 text-sm font-medium text-gray-700">Aucune compétence technique identifiée</h4>
+                            <p className="mt-1 text-sm text-gray-500">
+                              Essayez d'ajouter plus de détails sur vos compétences techniques dans votre CV.
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

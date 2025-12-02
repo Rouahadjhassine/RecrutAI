@@ -53,13 +53,6 @@ function App() {
   const { user, loading, logout } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Fonction de déconnexion forcée pour le débogage
-  const forceLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.href = '/login';
-  };
-
   useEffect(() => {
     // Marquer l'application comme initialisée après le premier rendu
     const timer = setTimeout(() => {
@@ -106,30 +99,8 @@ function App() {
     }
   };
 
-  // Bouton de débogage temporaire - à supprimer en production
-  const showDebugButton = process.env.NODE_ENV === 'development';
-
   return (
     <>
-      {showDebugButton && user && (
-        <button 
-          onClick={forceLogout}
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            padding: '10px',
-            backgroundColor: '#ff4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            zIndex: 9999
-          }}
-        >
-          Déconnexion Forcée (Debug)
-        </button>
-      )}
       <Routes>
       {/* Routes publiques */}
       <Route 

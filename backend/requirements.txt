@@ -3,7 +3,7 @@ Django==4.2.16
 djangorestframework==3.14.0
 django-cors-headers==4.3.1
 djangorestframework-simplejwt==5.3.1
-coreapi==2.3.3  # For API documentation
+coreapi==2.3.3
 
 # Database
 psycopg2-binary==2.9.9
@@ -14,8 +14,13 @@ PyJWT==2.8.0
 
 # ML Models
 sentence-transformers>=2.2.2
-transformers>=4.30.2
-huggingface-hub>=0.16.4
+transformers==4.30.2
+huggingface-hub==0.16.4
+torch>=2.0.0
+tensorflow>=2.10.0,<2.11.0
+keras<2.12.0
+numpy<2.0.0,>=1.19.2
+protobuf<4.0.0,>=3.20.0
 
 # Production server
 gunicorn==21.2.0
@@ -42,4 +47,6 @@ pytest-django==4.7.0
 pytest-cov==4.1.0
 PyPDF2==3.0.1
 
-pandas==2.1.1
+# Data processing
+pandas==1.5.3
+scikit-learn==1.2.2
