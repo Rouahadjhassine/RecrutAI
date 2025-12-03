@@ -1,0 +1,2 @@
+protobuf<3.20.0  # Compatible avec TensorFlow 2.10.x
+tensorflow<2.11.0,>=2.10.0  # Version spécifique de TensorFlow

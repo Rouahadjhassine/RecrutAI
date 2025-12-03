@@ -1,35 +1,45 @@
-# Étape de construction
-FROM node:20-alpine AS builder
+# Use Node 18 LTS as the base image for building
+FROM node:18-alpine as builder
 
+# Set working directory
 WORKDIR /app
 
-# Copier les fichiers de dépendances
+# Copy package files
 COPY package*.json ./
 
-# Installer toutes les dépendances (y compris les devDependencies)
-RUN npm install
-# Installer les dépendances de développement nécessaires
-RUN npm install --save-dev react-app-rewired customize-cra
+# Install all dependencies including devDependencies for build
+RUN npm ci
 
-# Copier le reste du code source
+# Copy the rest of the application
 COPY . .
 
-# Construire l'application
+# Build the application
 RUN npm run build
 
-# Étape d'exécution
+# Production stage
 FROM nginx:alpine
 
-# Copier les fichiers de construction depuis l'étape de construction
-COPY --from=builder /app/build /usr/share/nginx/html
+# Set working directory
+WORKDIR /usr/share/nginx/html
 
-# La configuration Nginx est gérée par le service nginx séparé
+# Remove default nginx static assets
+RUN rm -rf ./*
 
-# Créer les dossiers nécessaires
-RUN mkdir -p /app/staticfiles /app/media
+# Copy the built app from the builder stage
+COPY --from=builder /app/build .
 
-# Exposer le port 8080
-EXPOSE 8080
+# Copy the nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Démarrer Nginx
+# Set proper permissions for nginx to access files
+RUN chmod -R 755 /usr/share/nginx/html && \
+    chown -R nginx:nginx /usr/share/nginx/html && \
+    chmod -R 755 /var/cache/nginx && \
+    chmod -R 755 /var/log/nginx && \
+    chmod -R 755 /etc/nginx/conf.d
+
+# Expose port 80
+EXPOSE 80
+
+# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
