@@ -1,0 +1,48 @@
+# node-exporter.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: monitoring
+  labels:
+    k8s-app: node-exporter
+spec:
+  selector:
+    matchLabels:
+      k8s-app: node-exporter
+  template:
+    metadata:
+      labels:
+        k8s-app: node-exporter
+    spec:
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter:latest
+        args:
+        - --web.listen-address=:19100  # Nouveau port
+        ports:
+        - containerPort: 19100  # Même port ici
+          name: metrics
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+---
+# Service for node-exporter
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  namespace: monitoring
+  labels:
+    k8s-app: node-exporter
+spec:
+  clusterIP: None
+  ports:
+  - name: metrics
+    port: 19100
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    k8s-app: node-exporter

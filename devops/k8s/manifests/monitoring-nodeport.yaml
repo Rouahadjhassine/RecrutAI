@@ -1,0 +1,28 @@
+# monitoring-nodeport.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-nodeport
+  namespace: monitoring
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30080
+  selector:
+    app: grafana  # Ceci correspond au label du pod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-nodeport
+  namespace: monitoring
+spec:
+  type: NodePort
+  ports:
+  - port: 9090
+    targetPort: 9090
+    nodePort: 30091
+  selector:
+    app: prometheus  # Ceci correspond au label du pod
