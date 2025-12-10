@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blackbox
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blackbox
+  template:
+    metadata:
+      labels:
+        app: blackbox
+    spec:
+      containers:
+      - name: blackbox
+        image: prom/blackbox-exporter:latest
+        ports:
+        - containerPort: 9115
+        args:
+        - --config.file=/etc/blackbox_exporter/config.yml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/blackbox_exporter
+      volumes:
+      - name: config
+        configMap:
+          name: blackbox-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blackbox-config
+  namespace: monitoring
+data:
+  config.yml: |
+    modules:
+      http_2xx:
+        prober: http
+        http:
+          preferred_ip_protocol: "ip4"
+          tls_config:
+            insecure_skip_verify: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox
+  namespace: monitoring
+spec:
+  selector:
+    app: blackbox
+  ports:
+  - port: 9115
+    targetPort: 9115

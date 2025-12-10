@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'django-app'
+    metrics_path: '/api/v1/metrics/'
+    static_configs:
+      - targets: ['backend:8000']  # Using the service name in Docker network
+    scheme: http
+    scrape_interval: 15s
+    honor_labels: true  # Keep the original metrics labels
+    scrape_timeout: 10s
+    # Add the Host header to match what Django expects
+    tls_config:
+      insecure_skip_verify: true
+    # Add relabeling to ensure the host header is set correctly
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: backend:8000
+      # Add the Host header
+      - target_label: __meta_dns_name
+        replacement: backend
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9100']  # Use host.docker.internal to access host from containers
+    scrape_interval: 5s
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s

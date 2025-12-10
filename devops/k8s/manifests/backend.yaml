@@ -1,0 +1,232 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: recrutai
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: localhost:5000/recrutai-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        # Database
+        - name: DB_ENGINE
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: DB_ENGINE
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: recrutai-secrets
+              key: POSTGRES_PASSWORD
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: DB_PORT
+        
+        # Django
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: recrutai-secrets
+              key: DJANGO_SECRET_KEY
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: DEBUG
+        - name: ALLOWED_HOSTS
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: ALLOWED_HOSTS
+        
+        # Redis
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: REDIS_PORT
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: recrutai-secrets
+              key: REDIS_PASSWORD
+        
+        # Email
+        - name: EMAIL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: EMAIL_HOST
+        - name: EMAIL_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: EMAIL_PORT
+        - name: EMAIL_USE_TLS
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: EMAIL_USE_TLS
+        - name: EMAIL_HOST_USER
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: EMAIL_HOST_USER
+        - name: EMAIL_HOST_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: recrutai-secrets
+              key: EMAIL_HOST_PASSWORD
+        - name: DEFAULT_FROM_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: DEFAULT_FROM_EMAIL
+        
+        # Celery
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: CELERY_RESULT_BACKEND
+        
+        # CORS
+        - name: CORS_ALLOWED_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: CORS_ALLOWED_ORIGINS
+        - name: CSRF_TRUSTED_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: CSRF_TRUSTED_ORIGINS
+        
+        # Security
+        - name: SECURE_SSL_REDIRECT
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: SECURE_SSL_REDIRECT
+        - name: SESSION_COOKIE_SECURE
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: SESSION_COOKIE_SECURE
+        - name: CSRF_COOKIE_SECURE
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: CSRF_COOKIE_SECURE
+        - name: SECURE_BROWSER_XSS_FILTER
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: SECURE_BROWSER_XSS_FILTER
+        - name: SECURE_CONTENT_TYPE_NOSNIFF
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: SECURE_CONTENT_TYPE_NOSNIFF
+        - name: X_FRAME_OPTIONS
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: X_FRAME_OPTIONS
+        
+        # Media & Static
+        - name: MEDIA_URL
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: MEDIA_URL
+        - name: STATIC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: STATIC_URL
+        - name: STATIC_ROOT
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: STATIC_ROOT
+        - name: MEDIA_ROOT
+          valueFrom:
+            configMapKeyRef:
+              name: recrutai-config
+              key: MEDIA_ROOT
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: recrutai
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP

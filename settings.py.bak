@@ -24,7 +24,7 @@ if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
     # En production, n'accepter que les hôtes spécifiés
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend,nginx,backend:8000').split(',')
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend,nginx').split(',')
 
 # Application definition
 INSTALLED_APPS = [

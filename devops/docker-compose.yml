@@ -206,6 +206,53 @@ services:
       - recrutai_network
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: recrutai_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./grafana/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - recrutai_network
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: recrutai_grafana
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3001:3000"
+    networks:
+      - recrutai_network
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: recrutai_node_exporter
+    restart: unless-stopped
+    command:
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - '9100:9100'
+
 networks:
   recrutai_network:
     driver: bridge
@@ -217,3 +264,5 @@ volumes:
   backend_media:
   huggingface_cache:
   spacy_models:
+  prometheus_data:
+  grafana_data:

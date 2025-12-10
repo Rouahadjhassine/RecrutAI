@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recrutai-config
+  namespace: recrutai
+data:
+  # Database
+  DB_ENGINE: "django.db.backends.postgresql"
+  DB_NAME: "recrutai_prod"
+  DB_USER: "recrutai_user"
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  
+  # Django
+  DEBUG: "True"
+  ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0,recrutai.local,10.1.0.0/16"
+  
+  # Redis
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  
+  # Frontend
+  REACT_APP_API_URL: "/api"
+  
+  # Celery
+  CELERY_BROKER_URL: "redis://:96324486roua@redis-service:6379/0"
+  CELERY_RESULT_BACKEND: "redis://:96324486roua@redis-service:6379/1"
+  
+  # CORS
+  CORS_ALLOWED_ORIGINS: "http://localhost,http://localhost:3000,http://127.0.0.1,http://127.0.0.1:3000,http://recrutai.local"
+  CSRF_TRUSTED_ORIGINS: "http://localhost,http://localhost:3000,http://recrutai.local"
+  
+  # Security
+  SECURE_SSL_REDIRECT: "False"
+  SESSION_COOKIE_SECURE: "False"
+  CSRF_COOKIE_SECURE: "False"
+  SECURE_BROWSER_XSS_FILTER: "True"
+  SECURE_CONTENT_TYPE_NOSNIFF: "True"
+  X_FRAME_OPTIONS: "DENY"
+  
+  # Email
+  EMAIL_HOST: "smtp.gmail.com"
+  EMAIL_PORT: "587"
+  EMAIL_USE_TLS: "True"
+  EMAIL_HOST_USER: "hadjhassineroua19@gmail.com"
+  DEFAULT_FROM_EMAIL: "hadjhassineroua19@gmail.com"
+  
+  # Media & Static
+  MEDIA_URL: "/media/"
+  STATIC_URL: "/static/"
+  STATIC_ROOT: "/app/staticfiles"
+  MEDIA_ROOT: "/app/media"

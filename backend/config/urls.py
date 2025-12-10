@@ -8,6 +8,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
+from django_prometheus import exports
 
 def health_check(request):
     """Health check endpoint"""
@@ -23,6 +24,9 @@ api_patterns = [
     # Apps
     path('auth/', include('accounts.urls')),
     path('cvs/', include('cvs.urls')),
+    
+    # Métriques Prometheus
+    path('metrics/', exports.ExportToDjangoView, name='prometheus-django-metrics'),
 ]
 
 urlpatterns = [
